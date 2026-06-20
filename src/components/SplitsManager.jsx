@@ -196,7 +196,13 @@ export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, 
       { name: 'Arnold: Shoulders & Arms', exercises: ['Seated Dumbbell Press', 'Lateral Raises', 'Barbell Curls', 'Skullcrushers', 'Preacher Curls', 'Tricep Pushdowns'] }
     ];
 
+    const { data: existingSplits } = await supabase.from('splits').select('name');
+    const existingNames = new Set((existingSplits || []).map(s => s.name));
+
+    let addedCount = 0;
     for (const t of templates) {
+      if (existingNames.has(t.name)) continue;
+      
       const { data: split, error: splitError } = await supabase
         .from('splits')
         .insert({ name: t.name })
@@ -210,10 +216,11 @@ export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, 
           display_order: i
         }));
         await supabase.from('split_exercises').insert(exercises);
+        addedCount++;
       }
     }
     
-    setStatus('Templates loaded!');
+    setStatus(addedCount > 0 ? `Loaded ${addedCount} new templates!` : 'All templates already loaded.');
     onChanged?.(); // triggers refresh in parent
   };
 
@@ -350,11 +357,11 @@ export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, 
             <div className="mt-6 grid gap-2 stagger-children">
               {selectedSplit.exercises.length ? selectedSplit.exercises.map((exercise, index) => (
                 <div key={exercise.id} className="group flex min-h-[56px] items-center justify-between rounded-xl bg-app-bg border border-glass-border px-2 sm:px-4 py-2 transition hover:border-white/20">
-                  <div className="flex items-center gap-3 min-w-0 flex-1 overflow-hidden">
-                    <div className="grid h-8 w-8 place-items-center rounded-lg bg-card-elevated text-[10px] font-bold text-text-muted font-mono shrink-0">
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    <div className="mt-0.5 grid h-8 w-8 place-items-center rounded-lg bg-card-elevated text-[10px] font-bold text-text-muted font-mono shrink-0">
                       {String(index + 1).padStart(2, '0')}
                     </div>
-                    <p className="truncate text-sm font-bold text-text-main flex-1 min-w-0" title={exercise.exercise_name}>
+                    <p className="text-sm font-bold text-text-main flex-1 break-words whitespace-normal leading-snug py-1.5" title={exercise.exercise_name}>
                       {exercise.exercise_name}
                     </p>
                   </div>
