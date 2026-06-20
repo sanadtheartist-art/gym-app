@@ -44,7 +44,7 @@ export default function ActiveSessionHeader({ onSessionToolsChange, onRestTimerU
       setIsRestActive(true);
     },
     pauseRest: () => setIsRestActive(false),
-    resumeRest: () => { if (restSeconds > 0) setIsRestActive(true); },
+    resumeRest: () => setIsRestActive(true),
     resetRest: () => { setRestSeconds(0); setIsRestActive(false); },
     formatDuration,
   // eslint-disable-next-line react-hooks/exhaustive-deps

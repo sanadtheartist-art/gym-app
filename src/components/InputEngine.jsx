@@ -26,6 +26,7 @@ export default function InputEngine({
 }) {
   const [form, setForm] = useState(initialFormState);
   const [exerciseSuggestions, setExerciseSuggestions] = useState([]);
+  const [exerciseMetadataDict, setExerciseMetadataDict] = useState({});
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [assistedMuscles, setAssistedMuscles] = useState({});
   const [mediaFile, setMediaFile] = useState(null);
@@ -57,9 +58,10 @@ export default function InputEngine({
     async function loadSuggestions() {
       const { data, error } = await supabase
         .from('workouts')
-        .select('exercise_name')
+        .select('exercise_name, muscle_group, mechanic_type, machine_used, assisted_muscles, timestamp')
         .not('exercise_name', 'is', null)
-        .limit(500);
+        .order('timestamp', { ascending: false })
+        .limit(300);
 
       if (!isMounted) return;
 
@@ -68,8 +70,23 @@ export default function InputEngine({
         return;
       }
 
-      const distinct = [...new Set((data || []).map((row) => row.exercise_name).filter(Boolean))].sort();
-      setExerciseSuggestions(distinct);
+      const dict = {};
+      (data || []).forEach(row => {
+        const name = row.exercise_name?.trim();
+        if (name && !dict[name]) {
+          dict[name] = {
+            muscle_group: row.muscle_group,
+            mechanic_type: row.mechanic_type,
+            machine_used: row.machine_used,
+            assisted_muscles: row.assisted_muscles,
+          };
+        }
+      });
+      
+      setExerciseMetadataDict(dict);
+      setExerciseSuggestions(Object.keys(dict).sort(function(a, b) {
+        return a.toLowerCase().localeCompare(b.toLowerCase());
+      }));
     }
 
     loadSuggestions();
@@ -123,6 +140,25 @@ export default function InputEngine({
 
   const updateForm = (key, value) => {
     setForm((current) => ({ ...current, [key]: value }));
+  };
+
+  const handleExerciseNameChange = (name) => {
+    const meta = exerciseMetadataDict[name.trim()];
+    
+    // Check if we are freshly hitting an exact match
+    const isNewMatch = meta && form.exerciseName.trim() !== name.trim();
+
+    setForm((current) => ({ 
+      ...current, 
+      exerciseName: name,
+      ...(isNewMatch && meta.muscle_group ? { muscleGroups: meta.muscle_group.split(',').map(s => s.trim()) } : {}),
+      ...(isNewMatch && meta.mechanic_type ? { mechanicType: meta.mechanic_type } : {}),
+      ...(isNewMatch && meta.machine_used ? { machineUsed: meta.machine_used } : {}),
+    }));
+
+    if (isNewMatch && meta.assisted_muscles) {
+      setAssistedMuscles(meta.assisted_muscles);
+    }
   };
 
   const updateSet = (index, key, value) => {
@@ -399,7 +435,7 @@ export default function InputEngine({
                   <button
                     type="button"
                     key={exercise.id || exercise.exercise_name}
-                    onClick={() => updateForm('exerciseName', exercise.exercise_name)}
+                    onClick={() => handleExerciseNameChange(exercise.exercise_name)}
                     className={`whitespace-nowrap rounded-lg px-4 py-2.5 text-xs font-bold transition ${form.exerciseName === exercise.exercise_name
                         ? 'glass-card-orange text-white'
                         : 'bg-card-elevated text-text-muted hover:text-text-main'
@@ -420,7 +456,7 @@ export default function InputEngine({
               <input
                 required
                 value={form.exerciseName}
-                onChange={(event) => updateForm('exerciseName', event.target.value)}
+                onChange={(event) => handleExerciseNameChange(event.target.value)}
                 list="exercise-suggestions"
                 placeholder="e.g. Bench Press"
                 autoComplete="off"
@@ -437,7 +473,7 @@ export default function InputEngine({
                     <button
                       type="button"
                       key={name}
-                      onClick={() => updateForm('exerciseName', name)}
+                      onClick={() => handleExerciseNameChange(name)}
                       className="whitespace-nowrap rounded-lg bg-card-elevated px-3 py-1.5 text-[11px] font-semibold text-text-muted hover:text-text-main transition"
                     >
                       {name}
