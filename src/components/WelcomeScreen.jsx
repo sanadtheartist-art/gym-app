@@ -4,53 +4,113 @@ import { Dumbbell } from 'lucide-react';
 export default function WelcomeScreen({ username, onComplete }) {
   const [stage, setStage] = useState(0);
 
+  // CamelCase the username
+  const display = username
+    ? username.charAt(0).toUpperCase() + username.slice(1)
+    : 'Athlete';
+
   useEffect(() => {
-    // Stage 0: Initial render (hidden/setup)
-    // Stage 1: Fade in logo and bg
-    const t1 = setTimeout(() => setStage(1), 50);
-    // Stage 2: Slide up welcome text
-    const t2 = setTimeout(() => setStage(2), 250);
-    // Stage 3: Pulse logo / loading complete
-    const t3 = setTimeout(() => setStage(3), 600);
-    // Stage 4: Fade out everything
+    const t1 = setTimeout(() => setStage(1), 40);    // bg blob + logo fade in
+    const t2 = setTimeout(() => setStage(2), 220);   // text slides up
+    const t3 = setTimeout(() => setStage(3), 550);   // logo pulses + bar fills
     const t4 = setTimeout(() => {
       setStage(4);
-      setTimeout(onComplete, 250); // 250ms fade out duration
-    }, 1000);
+      setTimeout(onComplete, 280);
+    }, 1150);
 
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-      clearTimeout(t4);
-    };
+    return () => [t1, t2, t3, t4].forEach(clearTimeout);
   }, [onComplete]);
 
   return (
-    <div className={`fixed inset-0 z-[200] flex flex-col items-center justify-center bg-app-bg transition-opacity duration-250 ease-in-out ${stage === 4 ? 'opacity-0' : 'opacity-100'}`}>
-      {/* Background decorations */}
-      <div className={`absolute top-[20%] left-[10%] w-[60%] h-[60%] bg-accent-primary/20 blur-[120px] rounded-full transition-all duration-500 ${stage >= 1 ? 'scale-150 opacity-100' : 'scale-50 opacity-0'}`} />
-      
-      <div className={`relative flex flex-col items-center justify-center transition-all duration-300 transform ${stage >= 1 ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
-        {/* Animated Logo */}
-        <div className={`w-20 h-20 rounded-3xl mb-6 flex items-center justify-center shadow-2xl transition-all duration-400 ${stage >= 3 ? 'scale-110 shadow-[0_0_40px_var(--accent-primary)]' : 'scale-100'} glass-card`} style={{ borderColor: 'var(--accent-primary)' }}>
-          <Dumbbell size={40} className="text-text-main" style={{ color: 'var(--accent-primary)' }} />
+    <div
+      className={`fixed inset-0 z-[200] flex flex-col items-center justify-center overflow-hidden bg-app-bg transition-opacity duration-300 ease-in-out ${
+        stage === 4 ? 'opacity-0 pointer-events-none' : 'opacity-100'
+      }`}
+    >
+      {/* Ambient glow blobs */}
+      <div
+        className={`absolute top-[-10%] left-[-20%] h-[50vh] w-[70vw] rounded-full blur-[100px] transition-all duration-700 ease-out ${
+          stage >= 1 ? 'opacity-30 scale-110' : 'opacity-0 scale-75'
+        }`}
+        style={{ background: 'var(--accent-primary)' }}
+      />
+      <div
+        className={`absolute bottom-[-5%] right-[-10%] h-[35vh] w-[50vw] rounded-full blur-[120px] transition-all duration-700 delay-100 ease-out ${
+          stage >= 1 ? 'opacity-20 scale-110' : 'opacity-0 scale-75'
+        }`}
+        style={{ background: 'var(--accent-secondary)' }}
+      />
+
+      {/* Main content */}
+      <div
+        className={`relative flex flex-col items-center justify-center transition-all duration-350 ease-out ${
+          stage >= 1 ? 'translate-y-0 opacity-100' : 'translate-y-6 opacity-0'
+        }`}
+      >
+        {/* Logo badge */}
+        <div
+          className={`mb-7 flex h-24 w-24 items-center justify-center rounded-[28px] shadow-2xl transition-all duration-400 ${
+            stage >= 3
+              ? 'scale-110'
+              : 'scale-100'
+          }`}
+          style={{
+            background: 'var(--card-bg)',
+            border: '2px solid var(--accent-primary)',
+            boxShadow: stage >= 3
+              ? '0 0 50px var(--accent-primary), 0 0 80px color-mix(in srgb, var(--accent-primary) 30%, transparent)'
+              : '0 20px 60px rgba(0,0,0,0.5)',
+          }}
+        >
+          <Dumbbell size={46} style={{ color: 'var(--accent-primary)' }} strokeWidth={1.75} />
         </div>
-        
-        {/* Welcome Text */}
+
+        {/* Text group */}
         <div className="text-center overflow-hidden">
-          <h2 className={`text-4xl font-black tracking-tighter text-text-main transition-transform duration-300 ease-out transform ${stage >= 2 ? 'translate-y-0' : 'translate-y-[100%]'}`}>
+          <h1
+            className={`text-5xl font-black tracking-tighter text-text-main transition-all duration-350 ease-out ${
+              stage >= 2 ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'
+            }`}
+          >
             JEXI
-          </h2>
-          <p className={`text-lg font-medium mt-2 transition-all duration-300 delay-75 ease-out transform ${stage >= 2 ? 'translate-y-0 opacity-100' : 'translate-y-[100%] opacity-0'}`} style={{ color: 'var(--text-muted)' }}>
-            Welcome back, <span className="font-bold text-text-main">{username}</span>
-          </p>
+          </h1>
+          <div
+            className={`mt-2.5 transition-all duration-350 delay-75 ease-out ${
+              stage >= 2 ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+            }`}
+          >
+            <span className="text-base font-medium" style={{ color: 'var(--text-muted)' }}>
+              Welcome back,{' '}
+            </span>
+            <span
+              className="text-base font-black"
+              style={{
+                background: 'var(--greeting-gradient)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}
+            >
+              {display}
+            </span>
+          </div>
         </div>
       </div>
-      
-      {/* Loading Bar */}
-      <div className={`absolute bottom-20 w-48 h-1 bg-card-elevated rounded-full overflow-hidden transition-opacity duration-300 ${stage >= 2 ? 'opacity-100' : 'opacity-0'}`}>
-        <div className={`h-full rounded-full transition-all duration-[600ms] ease-out ${stage >= 3 ? 'w-full' : 'w-[20%]'}`} style={{ background: 'var(--accent-primary)' }} />
+
+      {/* Progress bar */}
+      <div
+        className={`absolute bottom-16 w-44 overflow-hidden rounded-full transition-opacity duration-300 ${
+          stage >= 2 ? 'opacity-100' : 'opacity-0'
+        }`}
+        style={{ height: 3, background: 'var(--card-elevated)' }}
+      >
+        <div
+          className="h-full rounded-full transition-all duration-700 ease-out"
+          style={{
+            width: stage >= 3 ? '100%' : '15%',
+            background: 'var(--accent-primary)',
+          }}
+        />
       </div>
     </div>
   );

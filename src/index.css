@@ -137,26 +137,14 @@ svg[class*="lucide"] {
   transition: stroke-width 0.3s ease;
 }
 
-/* Retro / Matrix — scan-line icon shimmer effect */
-:root[data-theme="retro"] svg[class*="lucide"],
-:root[data-theme="matrix"] svg[class*="lucide"] {
-  filter: drop-shadow(0 0 3px currentColor);
+/* Cyberpunk — subtle lime glow on icons */
+:root svg[class*="lucide"] {
+  transition: color 0.2s ease;
 }
 
-/* Volcanic — thick bold icons */
-:root[data-theme="volcanic"] svg[class*="lucide"] {
-  filter: drop-shadow(0 0 2px rgba(255,69,0,0.5));
-}
-
-/* Rose + Sunset — soft glow */
-:root[data-theme="rose"] svg[class*="lucide"],
-:root[data-theme="sunset"] svg[class*="lucide"] {
-  filter: drop-shadow(0 0 4px currentColor) opacity(0.9);
-}
-
-/* Arctic — crisp clean icons */
-:root[data-theme="arctic"] svg[class*="lucide"] {
-  filter: drop-shadow(0 0 2px rgba(126,207,255,0.4));
+/* High-contrast — sharper icon rendering */
+:root[data-theme="highcontrast"] svg[class*="lucide"] {
+  filter: drop-shadow(0 0 1px currentColor);
 }
 
 button,
@@ -424,8 +412,32 @@ input:focus,
 textarea:focus,
 select:focus {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(200, 255, 0, 0.2);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-primary) 25%, transparent);
 }
+
+/* animate-fade-in utility */
+@keyframes animate-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.animate-fade-in {
+  animation: animate-fade-in 0.25s ease both;
+}
+
+/* animate-scale-in utility (for nav active pip) */
+@keyframes scaleIn {
+  from { transform: scaleX(0) translateX(-50%); opacity: 0; }
+  to   { transform: scaleX(1) translateX(-50%); opacity: 1; }
+}
+.animate-scale-in {
+  animation: scaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Accent colour helper — theme-adaptive text */
+.text-accent-primary { color: var(--accent-primary); }
+.text-accent-secondary { color: var(--accent-secondary); }
+.bg-accent-primary   { background-color: var(--accent-primary); }
+.bg-accent-secondary { background-color: var(--accent-secondary); }
 
 /* ========================================= */
 /* Range Slider                              */
@@ -440,5 +452,19 @@ input[type="range"] {
 /* ========================================= */
 
 .font-mono {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, monospace;
 }
+
+/* ========================================= */
+/* Shadow Glow helpers                       */
+/* ========================================= */
+
+.shadow-glow-lime   { box-shadow: 0 0 24px rgba(200,255,0,0.35); }
+.shadow-glow-orange { box-shadow: 0 0 24px rgba(255,107,44,0.35); }
+.shadow-glow-red    { box-shadow: 0 0 24px rgba(255,77,77,0.35); }
+
+/* ========================================= */
+/* Rounded Utility                           */
+/* ========================================= */
+.rounded-card { border-radius: 20px; }
+.rounded-pill { border-radius: 9999px; }

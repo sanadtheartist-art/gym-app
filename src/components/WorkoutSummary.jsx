@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Trophy, Dumbbell, Timer, Flame, CheckCircle, Share, Loader2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Trophy, Dumbbell, Timer, Flame, CheckCircle, Share, Loader2, Zap } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import html2canvas from 'html2canvas';
 
@@ -7,217 +7,215 @@ export default function WorkoutSummary({ data, onClose }) {
   const [prBroken, setPrBroken] = useState(false);
   const [animating, setAnimating] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const cardRef = useRef(null);
 
   useEffect(() => {
-    // Check if this workout broke a PR
     async function checkPR() {
-      if (!data || !data.exercise_name) return;
-      
-      const { data: previousWorkouts } = await supabase
+      if (!data?.exercise_name) return;
+      const { data: prev } = await supabase
         .from('workouts')
         .select('weight_kg, reps, sets_data')
         .eq('exercise_name', data.exercise_name)
         .lt('timestamp', data.timestamp)
         .order('timestamp', { ascending: false });
 
-      if (!previousWorkouts || previousWorkouts.length === 0) {
-        setPrBroken(true); // First time = PR!
-        return;
-      }
+      if (!prev || prev.length === 0) { setPrBroken(true); return; }
 
-      let max1RMBefore = 0;
-      previousWorkouts.forEach(w => {
-        if (w.sets_data && w.sets_data.length > 0) {
-          w.sets_data.forEach(s => {
-            if (s.type === 'W') return;
-            const e1rm = (s.weight_kg || s.weight || 0) * (1 + (s.reps || 0) / 30);
-            if (e1rm > max1RMBefore) max1RMBefore = e1rm;
-          });
-        } else {
-          const e1rm = (w.weight_kg || 0) * (1 + (w.reps || 0) / 30);
-          if (e1rm > max1RMBefore) max1RMBefore = e1rm;
-        }
+      let maxBefore = 0;
+      prev.forEach(w => {
+        (w.sets_data?.length ? w.sets_data : [{ weight_kg: w.weight_kg, reps: w.reps }]).forEach(s => {
+          if (s.type === 'W') return;
+          const e = (s.weight_kg || s.weight || 0) * (1 + (s.reps || 0) / 30);
+          if (e > maxBefore) maxBefore = e;
+        });
       });
 
-      let current1RM = 0;
-      if (data.sets_data && data.sets_data.length > 0) {
-        data.sets_data.forEach(s => {
-          if (s.type === 'W') return;
-          const e1rm = (s.weight_kg || s.weight || 0) * (1 + (s.reps || 0) / 30);
-          if (e1rm > current1RM) current1RM = e1rm;
-        });
-      } else {
-        current1RM = (data.weight_kg || 0) * (1 + (data.reps || 0) / 30);
-      }
+      let cur = 0;
+      (data.sets_data?.length ? data.sets_data : [{ weight_kg: data.weight_kg, reps: data.reps }]).forEach(s => {
+        if (s.type === 'W') return;
+        const e = (s.weight_kg || s.weight || 0) * (1 + (s.reps || 0) / 30);
+        if (e > cur) cur = e;
+      });
 
-      if (current1RM > max1RMBefore) {
-        setPrBroken(true);
-      }
+      if (cur > maxBefore) setPrBroken(true);
     }
 
     checkPR();
-    
-    // Trigger entrance animations
-    setTimeout(() => setAnimating(true), 100);
+    setTimeout(() => setAnimating(true), 80);
   }, [data]);
 
   if (!data) return null;
 
-  let totalVolume = 0;
-  let totalSets = 0;
-  let maxWeight = 0;
+  let totalVolume = 0, totalSets = 0, maxWeight = 0, est1RM = 0;
+  const sets = data.sets_data?.length ? data.sets_data : [];
 
-  if (data.sets_data && data.sets_data.length > 0) {
-    data.sets_data.forEach(s => {
-      if (s.type !== 'W') {
-        const w = s.weight_kg || s.weight || 0;
-        const r = s.reps || 0;
-        totalVolume += w * r;
-        totalSets += 1;
-        if (w > maxWeight) maxWeight = w;
-      }
-    });
-  } else {
+  sets.forEach(s => {
+    if (s.type === 'W') return;
+    const w = s.weight_kg || s.weight || 0;
+    const r = s.reps || 0;
+    totalVolume += w * r;
+    totalSets++;
+    if (w > maxWeight) maxWeight = w;
+    const e = w * (1 + r / 30);
+    if (e > est1RM) est1RM = e;
+  });
+
+  if (!sets.length) {
     totalSets = data.sets || 0;
     maxWeight = data.weight_kg || 0;
     totalVolume = totalSets * (data.reps || 0) * maxWeight;
+    est1RM = maxWeight * (1 + (data.reps || 0) / 30);
   }
 
   const durationMin = Math.round((data.session_duration_seconds || 0) / 60);
+  const accentColor = prBroken ? 'var(--accent-secondary)' : 'var(--accent-primary)';
+
+  const fallbackDownload = (blob) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Jexi_${data.exercise_name?.replace(/\s+/g, '_')}_${Date.now()}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   const handleShare = async () => {
-    const cardElement = document.getElementById('summary-card');
-    if (!cardElement) return;
-
+    const card = cardRef.current;
+    if (!card) return;
     setSharing(true);
-    try {
-      const buttonsDiv = document.getElementById('summary-buttons');
-      if (buttonsDiv) buttonsDiv.style.visibility = 'hidden'; // Hide buttons during snapshot
 
-      const canvas = await html2canvas(cardElement, {
-        scale: 2,
-        backgroundColor: '#0a0a0a', // Dark fallback background
+    const btnDiv = document.getElementById('summary-buttons');
+    if (btnDiv) btnDiv.style.visibility = 'hidden';
+
+    try {
+      const canvas = await html2canvas(card, {
+        scale: 2.5,
         useCORS: true,
+        allowTaint: true,
+        backgroundColor: null,
+        logging: false,
       });
 
-      if (buttonsDiv) buttonsDiv.style.visibility = 'visible';
+      if (btnDiv) btnDiv.style.visibility = 'visible';
 
       canvas.toBlob(async (blob) => {
-        if (!blob) {
-          setSharing(false);
-          return;
-        }
-        
-        const file = new File([blob], `workout_${Date.now()}.png`, { type: 'image/png' });
-        const title = prBroken ? "New PR Alert! 🏆" : "Workout Complete! 🔥";
-        const text = `Just crushed ${data.exercise_name}!`;
+        if (!blob) { setSharing(false); return; }
+        const file = new File([blob], 'workout.png', { type: 'image/png' });
+        const title = prBroken ? '🏆 New PR!' : '🔥 Workout Done!';
+        const text = `${data.exercise_name} — ${totalSets} sets, ${Math.round(totalVolume)}kg volume`;
 
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          try {
-            await navigator.share({
-              files: [file],
-              title,
-              text,
-            });
-          } catch (err) {
-            if (err.name !== 'AbortError') fallbackDownload(blob);
-          }
+        if (navigator.canShare?.({ files: [file] })) {
+          try { await navigator.share({ files: [file], title, text }); }
+          catch (e) { if (e.name !== 'AbortError') fallbackDownload(blob); }
         } else {
-          // Fallback to direct download if native file sharing is unavailable
           fallbackDownload(blob);
         }
         setSharing(false);
       }, 'image/png');
     } catch (err) {
       console.error(err);
-      const buttonsDiv = document.getElementById('summary-buttons');
-      if (buttonsDiv) buttonsDiv.style.visibility = 'visible';
+      if (btnDiv) btnDiv.style.visibility = 'visible';
       setSharing(false);
     }
   };
 
-  const fallbackDownload = (blob) => {
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Antigravity_Summary_${Date.now()}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
+  const Stat = ({ icon: Icon, value, label, accent }) => (
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-glass-border bg-app-bg p-4 gap-1">
+      <Icon size={18} style={{ color: accent || 'var(--text-muted)', marginBottom: 4 }} />
+      <p className="text-2xl font-extrabold text-text-main font-mono leading-none number-animate">{value}</p>
+      <p className="text-[9px] font-bold uppercase tracking-wider text-text-muted mt-0.5">{label}</p>
+    </div>
+  );
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/80 backdrop-blur-md p-4 pb-12 sm:items-center animate-fade-in">
-      <div id="summary-card" className={`w-full max-w-sm rounded-[32px] glass-card overflow-hidden shadow-2xl transition-all duration-700 ${animating ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'}`}>
-        
-        {/* Header Graphic */}
-        <div 
-          className={`relative h-40 flex items-center justify-center overflow-hidden bg-cover bg-center ${prBroken ? 'bg-accent-orange' : 'bg-accent-lime'}`}
-          style={data.media_url && !data.media_url.match(/\.(mp4|webm|ogg)$/i) ? { backgroundImage: `url(${data.media_url})` } : {}}
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/75 backdrop-blur-md pb-6 px-4 sm:items-center animate-fade-in">
+      {/* The card — this is what gets screenshotted */}
+      <div
+        ref={cardRef}
+        className={`w-full max-w-sm overflow-hidden rounded-[28px] glass-card shadow-2xl transition-all duration-600 ${
+          animating ? 'translate-y-0 opacity-100' : 'translate-y-16 opacity-0'
+        }`}
+      >
+        {/* ── Hero banner ─────────────────────────── */}
+        <div
+          className="relative flex h-44 items-center justify-center overflow-hidden bg-cover bg-center"
+          style={
+            data.media_url && !data.media_url.match(/\.(mp4|webm|ogg)$/i)
+              ? { backgroundImage: `url(${data.media_url})` }
+              : { background: `linear-gradient(135deg, var(--card-bg) 0%, var(--card-elevated) 100%)` }
+          }
         >
-          <div className="absolute inset-0 bg-black/40" />
-          <div className="absolute -left-10 -top-10 h-32 w-32 rounded-full bg-white/20 blur-2xl" />
-          <div className="absolute -right-10 -bottom-10 h-32 w-32 rounded-full bg-black/60 blur-2xl" />
-          
-          <div className="relative z-10 flex flex-col items-center text-app-bg drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)]">
-            {prBroken ? (
-              <Trophy size={48} className="drop-shadow-lg mb-2" />
-            ) : (
-              <CheckCircle size={48} className="drop-shadow-lg mb-2" />
-            )}
-            <h2 className="text-xl font-black tracking-tight uppercase">
-              {prBroken ? 'New Record!' : 'Workout Complete'}
+          {/* Overlay gradient */}
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.6) 100%)' }} />
+
+          {/* Accent glow blob */}
+          <div className="absolute -top-8 -right-8 h-32 w-32 rounded-full blur-3xl opacity-50"
+            style={{ background: accentColor }} />
+          <div className="absolute -bottom-8 -left-8 h-24 w-24 rounded-full blur-3xl opacity-30"
+            style={{ background: accentColor }} />
+
+          <div className="relative z-10 flex flex-col items-center text-white drop-shadow-lg">
+            <div
+              className="mb-3 flex h-16 w-16 items-center justify-center rounded-2xl shadow-xl"
+              style={{ background: accentColor }}
+            >
+              {prBroken
+                ? <Trophy size={34} color="#000" strokeWidth={2.5} />
+                : <CheckCircle size={34} color="#000" strokeWidth={2.5} />}
+            </div>
+            <h2 className="text-xl font-black uppercase tracking-wider leading-tight">
+              {prBroken ? '🏆 New Record!' : 'Workout Complete'}
             </h2>
+            <p className="mt-1 text-sm font-semibold opacity-75">{data.exercise_name}</p>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="p-6">
-          <div className="text-center mb-6">
-            <h3 className="text-2xl font-extrabold text-text-main">{data.exercise_name}</h3>
-            <p className="text-sm font-medium text-text-muted mt-1">{data.muscle_group}</p>
+        {/* ── Stats ───────────────────────────────── */}
+        <div className="p-5">
+          {/* Muscle group label */}
+          {data.muscle_group && (
+            <p className="mb-4 text-center text-[11px] font-bold uppercase tracking-[0.18em] text-text-muted">
+              {data.muscle_group}
+            </p>
+          )}
+
+          <div className="grid grid-cols-2 gap-2.5 mb-5">
+            <Stat icon={Dumbbell} value={Math.round(totalVolume)} label="Volume kg" />
+            <Stat icon={Flame}    value={totalSets}              label="Working Sets" accent="var(--accent-secondary)" />
+            <Stat icon={Trophy}   value={maxWeight}              label="Max Wt kg"    accent={prBroken ? accentColor : undefined} />
+            <Stat icon={Zap}      value={Math.round(est1RM)}     label="Est. 1RM kg"  accent="var(--accent-primary)" />
           </div>
 
-          <div className="grid grid-cols-2 gap-3 mb-6">
-            <div className="rounded-2xl bg-app-bg p-4 flex flex-col items-center justify-center border border-glass-border">
-              <Dumbbell size={20} className="text-text-muted mb-2" />
-              <p className="text-2xl font-extrabold text-text-main font-mono number-animate">{Math.round(totalVolume)}</p>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-text-muted">Volume (kg)</p>
+          {durationMin > 0 && (
+            <div className="mb-4 flex items-center justify-center gap-2 rounded-xl bg-card-elevated px-4 py-2.5 border border-glass-border">
+              <Timer size={14} className="text-text-muted" />
+              <span className="text-sm font-bold text-text-main">{durationMin} min session</span>
             </div>
-            <div className="rounded-2xl bg-app-bg p-4 flex flex-col items-center justify-center border border-glass-border">
-              <Flame size={20} className="text-accent-orange mb-2" />
-              <p className="text-2xl font-extrabold text-text-main font-mono number-animate">{totalSets}</p>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-text-muted">Working Sets</p>
-            </div>
-            <div className="rounded-2xl bg-app-bg p-4 flex flex-col items-center justify-center border border-glass-border">
-              <Trophy size={20} className={prBroken ? 'text-accent-lime' : 'text-text-muted'} style={{ marginBottom: '8px' }} />
-              <p className="text-2xl font-extrabold text-text-main font-mono number-animate">{maxWeight}</p>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-text-muted">Max Wt (kg)</p>
-            </div>
-            <div className="rounded-2xl bg-app-bg p-4 flex flex-col items-center justify-center border border-glass-border">
-              <Timer size={20} className="text-text-muted mb-2" />
-              <p className="text-2xl font-extrabold text-text-main font-mono number-animate">{durationMin}</p>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-text-muted">Minutes</p>
-            </div>
-          </div>
+          )}
 
+          {/* Branding watermark — shows in screenshot */}
+          <p className="mb-4 text-center text-[10px] font-bold tracking-widest uppercase" style={{ color: accentColor, opacity: 0.7 }}>
+            JEXI · Gym Tracker
+          </p>
+
+          {/* ── Buttons ── hidden during screenshot ── */}
           <div id="summary-buttons" className="flex gap-3">
             <button
               type="button"
               onClick={handleShare}
               disabled={sharing}
-              className="flex-1 flex items-center justify-center gap-2 h-14 rounded-xl glass-card text-sm font-bold text-text-main transition active:scale-95 hover:bg-white/5 disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-2 h-13 rounded-xl glass-card text-sm font-bold text-text-main transition active:scale-95 hover:bg-white/5 disabled:opacity-50 py-3.5"
             >
-              {sharing ? <Loader2 size={18} className="animate-spin" /> : <Share size={18} />} 
-              {sharing ? 'Saving...' : 'Share'}
+              {sharing ? <Loader2 size={17} className="animate-spin" /> : <Share size={17} />}
+              {sharing ? 'Capturing…' : 'Share'}
             </button>
             <button
               type="button"
               onClick={onClose}
-              className={`flex-1 h-14 rounded-xl text-sm font-extrabold text-app-bg transition active:scale-95 shadow-lg ${
-                prBroken ? 'bg-accent-orange shadow-glow-orange' : 'bg-accent-lime shadow-glow-lime'
-              }`}
+              className="flex-1 h-13 rounded-xl text-sm font-extrabold text-app-bg transition active:scale-95 shadow-lg py-3.5"
+              style={{ background: accentColor }}
             >
               Done
             </button>
