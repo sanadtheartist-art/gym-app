@@ -3,19 +3,14 @@ import { X, Upload, User, Palette, LogOut, Check, Pencil, Target, Ruler, Scale, 
 import { supabase } from '../lib/supabase';
 
 const THEMES = [
-  { id: 'default',    name: 'Cyberpunk',  bg: '#0D0D0D', card: '#1A1A1A', accent: '#C8FF00', text: '#F0F0F0' },
-  { id: 'ocean',      name: 'Ocean',      bg: '#060B19', card: '#0B132B', accent: '#00F0FF', text: '#E2E8F0' },
-  { id: 'monochrome', name: 'Mono',       bg: '#000000', card: '#111111', accent: '#FFFFFF', text: '#FFFFFF' },
-  { id: 'light',      name: 'Light',      bg: '#F0F4F8', card: '#FFFFFF', accent: '#059669', text: '#0D1117' },
-  { id: 'retro',      name: 'Retro',      bg: '#12002A', card: '#1E0040', accent: '#FF2DF7', text: '#F0E6FF' },
-  { id: 'newspaper',  name: 'Newspaper',  bg: '#FFFEF7', card: '#FAFAF2', accent: '#1C1C1C', text: '#1C1C1C' },
-  { id: 'matrix',     name: 'Matrix',     bg: '#000A00', card: '#001500', accent: '#00FF41', text: '#00FF41' },
-  { id: 'sunset',     name: 'Sunset',     bg: '#0F0616', card: '#1A0A24', accent: '#FF6B35', text: '#FFE4D6' },
-  { id: 'arctic',     name: 'Arctic',     bg: '#071726', card: '#0D2136', accent: '#7ECFFF', text: '#E8F4FF' },
-  { id: 'forest',     name: 'Forest',     bg: '#020E06', card: '#071A0D', accent: '#4ADE80', text: '#DCFCE7' },
-  { id: 'volcanic',   name: 'Volcanic',   bg: '#0D0200', card: '#1A0600', accent: '#FF4500', text: '#FFD6B8' },
-  { id: 'rose',       name: 'Rose',       bg: '#0F0008', card: '#1A0013', accent: '#FF6EB4', text: '#FFE4F0' },
-  { id: 'slate',      name: 'Slate',      bg: '#0A0C10', card: '#131720', accent: '#94A3B8', text: '#E2E8F0' },
+  { id: 'default',    name: 'Cyberpunk', bg: '#0D0D0D', card: '#1A1A1A', accent: '#C8FF00', text: '#F0F0F0' },
+  { id: 'glass',      name: 'Glass',     bg: '#E2D9F3', card: '#FFFFFF80', accent: '#7B2CBF', text: '#10002B' },
+  { id: 'retro',      name: 'Retro',     bg: '#12002A', card: '#1E0040', accent: '#FF2DF7', text: '#F0E6FF' },
+  { id: 'newspaper',  name: 'Newspaper', bg: '#FFFEF7', card: '#FAFAF2', accent: '#1C1C1C', text: '#1C1C1C' },
+  { id: 'ocean',      name: 'Ocean',     bg: '#060B19', card: '#0B132B', accent: '#00F0FF', text: '#E2E8F0' },
+  { id: 'brutalist',  name: 'Brutalist', bg: '#FFF000', card: '#FFFFFF', accent: '#000000', text: '#000000' },
+  { id: 'matrix',     name: 'Terminal',  bg: '#000A00', card: '#001500', accent: '#00FF41', text: '#00FF41' },
+  { id: 'sunset',     name: 'Sunset',    bg: '#0F0616', card: '#1A0A24', accent: '#FF6B35', text: '#FFE4D6' },
 ];
 
 const FITNESS_GOALS = ['Build Muscle', 'Lose Fat', 'Increase Strength', 'Improve Endurance', 'Athletic Performance', 'General Fitness'];
