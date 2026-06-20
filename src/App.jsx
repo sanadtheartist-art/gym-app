@@ -15,6 +15,7 @@ import ProfileManager from './components/ProfileManager';
 import WelcomeScreen from './components/WelcomeScreen';
 import PrivacyPolicyDialog from './components/PrivacyPolicyDialog';
 import OnboardingDialog from './components/OnboardingDialog';
+import { cleanupOldMedia } from './lib/mediaCleanup';
 
 const tabs = [
   { id: 'dashboard', label: 'Dashboard', icon: Grid2X2 },
@@ -66,6 +67,8 @@ export default function App() {
       setAuthInitialized(true);
       if (session) {
         setShowWelcome(true);
+        // Run background media cleanup
+        cleanupOldMedia();
         // After welcome screen, check if user has seen privacy OR onboarding (treat as returning if so)
         setTimeout(() => {
           setShowWelcome(false);

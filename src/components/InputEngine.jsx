@@ -4,6 +4,7 @@ import { ChevronDown, Dumbbell, Save, Upload, X, Plus, Trash2, CheckCircle2 } fr
 import { supabase } from '../lib/supabase';
 import { COMMON_MUSCLE_PRESETS, EXPLICIT_MUSCLE_LIST } from '../data/muscles';
 import { queueSyncData } from '../lib/offlineSync';
+import { playSuccessSound } from '../lib/sounds';
 
 const initialFormState = {
   muscleGroups: ['Upper Chest'],
@@ -306,6 +307,7 @@ export default function InputEngine({
       setAssistedMuscles({});
       setMediaFile(null);
       
+      playSuccessSound();
       setShowSuccess(true);
       setTimeout(() => {
         // Auto-advance logic for active splits

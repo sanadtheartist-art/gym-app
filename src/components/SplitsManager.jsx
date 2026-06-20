@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, FolderOpen, Play, Plus, Trash2, Edit2, Check, Download } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getCachedData, cacheData } from '../lib/offlineSync';
+import { playTapSound } from '../lib/sounds';
 
 export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, onChanged }) {
   const [splits, setSplits] = useState([]);
@@ -370,7 +371,12 @@ export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, 
               <div key={split.id} className="rounded-card glass-card overflow-hidden transition-all duration-300">
                 {/* Accordion Header */}
                 <div 
-                  onClick={() => !isEditing && setExpandedSplitId(isExpanded ? '' : split.id)}
+                  onClick={() => {
+                    if (!isEditing) {
+                      playTapSound();
+                      setExpandedSplitId(isExpanded ? '' : split.id);
+                    }
+                  }}
                   className={`flex flex-wrap items-center justify-between p-4 cursor-pointer hover:bg-white/5 transition-colors ${isExpanded ? 'bg-white/5' : ''}`}
                 >
                   <div className="min-w-0 flex-1 flex items-center gap-2">

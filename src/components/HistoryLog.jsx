@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Trash2, RotateCcw, Search, Dumbbell } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getCachedData, cacheData } from '../lib/offlineSync';
+import { playTapSound } from '../lib/sounds';
 export default function HistoryLog({ refreshKey, onChanged, onRepeatWorkout }) {
   const [workouts, setWorkouts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -109,7 +110,10 @@ export default function HistoryLog({ refreshKey, onChanged, onRepeatWorkout }) {
               <div 
                 key={workout.id} 
                 className="group flex flex-col rounded-card glass-card relative overflow-hidden transition-all duration-300 cursor-pointer hover:bg-white/5"
-                onClick={() => setExpandedLogId(isExpanded ? '' : workout.id)}
+                onClick={() => {
+                  playTapSound();
+                  setExpandedLogId(isExpanded ? '' : workout.id);
+                }}
               >
                 <div className={`flex items-start justify-between gap-3 p-5 ${isExpanded ? 'bg-white/5 pb-3 border-b border-glass-border' : ''}`}>
                   <div className="min-w-0 flex-1">

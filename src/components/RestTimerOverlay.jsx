@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Play, Pause, X, Plus, Minus, SkipForward } from 'lucide-react';
+import { playTimerAlert } from '../lib/sounds';
 
 const formatTime = (totalSeconds) => {
   const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
@@ -11,12 +12,21 @@ export default function RestTimerOverlay({ seconds, isActive, sessionTools, onCl
   const [localSeconds, setLocalSeconds] = useState(seconds);
   const [localActive, setLocalActive] = useState(isActive);
   const [initialTime, setInitialTime] = useState(seconds > 0 ? seconds : 90);
+  const alertedRef = useRef(false);
 
   // Sync with props
   useEffect(() => {
     setLocalSeconds(seconds);
     setLocalActive(isActive);
     if (seconds > initialTime) setInitialTime(seconds);
+    
+    // Play alert when hitting 0
+    if (seconds === 0 && isActive && !alertedRef.current) {
+      playTimerAlert();
+      alertedRef.current = true;
+    } else if (seconds > 0) {
+      alertedRef.current = false;
+    }
   }, [seconds, isActive, initialTime]);
 
   // Calculate progress circle (0 to 1)
