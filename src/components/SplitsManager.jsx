@@ -16,6 +16,22 @@ export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, 
   // For editing split name
   const [editingSplitId, setEditingSplitId] = useState('');
   const [editNameValue, setEditNameValue] = useState('');
+  
+  // For deleting split
+  const [deletingSplitId, setDeletingSplitId] = useState('');
+  const [deleteCountdown, setDeleteCountdown] = useState(0);
+
+  useEffect(() => {
+    let timer;
+    if (deletingSplitId && deleteCountdown > 0) {
+      timer = setTimeout(() => setDeleteCountdown(c => c - 1), 1000);
+    } else if (deletingSplitId && deleteCountdown === 0) {
+      executeDeleteSplit(deletingSplitId);
+      setDeletingSplitId('');
+    }
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deletingSplitId, deleteCountdown]);
 
   useEffect(() => {
     let isMounted = true;
@@ -94,22 +110,25 @@ export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, 
     const name = newSplitName.trim();
     if (!name) return;
 
-    const { data, error } = await supabase
-      .from('splits')
-      .insert({ name })
-      .select('id, name, created_at')
-      .single();
-
-    if (error) {
-      setStatus(error.message);
-      return;
-    }
+    const tempId = crypto.randomUUID();
+    const newSplit = { id: tempId, name, created_at: new Date().toISOString(), exercises: [] };
 
     setNewSplitName('');
-    setExpandedSplitId(data.id);
-    setSplits((current) => [{ ...data, exercises: [] }, ...current]);
-    setStatus('Routine created');
+    setExpandedSplitId(tempId);
+    
+    const updatedSplits = [newSplit, ...splits];
+    setSplits(updatedSplits);
+    cacheData('splits_manager', { splits: updatedSplits, suggestions: exerciseSuggestions }).catch(console.error);
     onChanged?.();
+
+    if (navigator.onLine) {
+      const { error } = await supabase.from('splits').insert({ id: tempId, name });
+      if (error) setStatus(error.message);
+    } else {
+      import('../lib/offlineSync').then(({ queueSyncAction }) => {
+        queueSyncAction('insert', 'splits', { id: tempId, name });
+      });
+    }
   };
 
   const updateSplitName = async (splitId) => {
@@ -119,15 +138,20 @@ export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, 
       return;
     }
     
-    const { error } = await supabase.from('splits').update({ name }).eq('id', splitId);
-    if (error) {
-      setStatus(error.message);
-      return;
-    }
-    
-    setSplits(current => current.map(s => s.id === splitId ? { ...s, name } : s));
+    const updatedSplits = splits.map(s => s.id === splitId ? { ...s, name } : s);
+    setSplits(updatedSplits);
+    cacheData('splits_manager', { splits: updatedSplits, suggestions: exerciseSuggestions }).catch(console.error);
     setEditingSplitId('');
     onChanged?.();
+    
+    if (navigator.onLine) {
+      const { error } = await supabase.from('splits').update({ name }).eq('id', splitId);
+      if (error) setStatus(error.message);
+    } else {
+      import('../lib/offlineSync').then(({ queueSyncAction }) => {
+        queueSyncAction('update', 'splits', { id: splitId, data: { name } });
+      });
+    }
   };
 
   const saveTodayAsSplit = async () => {
@@ -188,45 +212,44 @@ export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, 
     if (!split || !newExerciseName.trim()) return;
 
     const nextOrder = split.exercises.length;
-    const { data, error } = await supabase
-      .from('split_exercises')
-      .insert({
-        split_id: split.id,
-        exercise_name: newExerciseName.trim(),
-        display_order: nextOrder,
-      })
-      .select('id, exercise_name, display_order')
-      .single();
-
-    if (error) {
-      setStatus(error.message);
-      return;
-    }
+    const tempId = crypto.randomUUID();
+    const newEx = {
+      id: tempId,
+      split_id: split.id,
+      exercise_name: newExerciseName.trim(),
+      display_order: nextOrder,
+    };
 
     setNewExerciseName('');
-    setSplits((current) => current.map((s) => (
-      s.id === split.id
-        ? { ...s, exercises: [...s.exercises, data] }
-        : s
-    )));
-    setStatus('Exercise added');
+    const updatedSplits = splits.map((s) => s.id === split.id ? { ...s, exercises: [...s.exercises, newEx] } : s);
+    setSplits(updatedSplits);
+    cacheData('splits_manager', { splits: updatedSplits, suggestions: exerciseSuggestions }).catch(console.error);
     onChanged?.();
+
+    if (navigator.onLine) {
+      const { error } = await supabase.from('split_exercises').insert(newEx);
+      if (error) setStatus(error.message);
+    } else {
+      import('../lib/offlineSync').then(({ queueSyncAction }) => {
+        queueSyncAction('insert', 'split_exercises', newEx);
+      });
+    }
   };
 
   const deleteExercise = async (splitId, exerciseId) => {
-    const { error } = await supabase.from('split_exercises').delete().eq('id', exerciseId);
-
-    if (error) {
-      setStatus(error.message);
-      return;
-    }
-
-    setSplits((current) => current.map((split) => (
-      split.id === splitId
-        ? { ...split, exercises: split.exercises.filter((exercise) => exercise.id !== exerciseId) }
-        : split
-    )));
+    const updatedSplits = splits.map((split) => split.id === splitId ? { ...split, exercises: split.exercises.filter((exercise) => exercise.id !== exerciseId) } : split);
+    setSplits(updatedSplits);
+    cacheData('splits_manager', { splits: updatedSplits, suggestions: exerciseSuggestions }).catch(console.error);
     onChanged?.();
+
+    if (navigator.onLine) {
+      const { error } = await supabase.from('split_exercises').delete().eq('id', exerciseId);
+      if (error) setStatus(error.message);
+    } else {
+      import('../lib/offlineSync').then(({ queueSyncAction }) => {
+        queueSyncAction('delete', 'split_exercises', { id: exerciseId });
+      });
+    }
   };
 
   const moveExercise = async (splitId, exercise, direction) => {
@@ -242,37 +265,42 @@ export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, 
     newExercises[currentIndex] = newExercises[newIndex];
     newExercises[newIndex] = temp;
     
-    setSplits(current => current.map(s => 
-      s.id === splitId 
-        ? { ...s, exercises: newExercises } 
-        : s
-    ));
+    const updatedSplits = splits.map(s => s.id === splitId ? { ...s, exercises: newExercises } : s);
+    setSplits(updatedSplits);
+    cacheData('splits_manager', { splits: updatedSplits, suggestions: exerciseSuggestions }).catch(console.error);
     
     const updates = [
       { id: newExercises[currentIndex].id, display_order: currentIndex },
       { id: newExercises[newIndex].id, display_order: newIndex }
     ];
     
-    for (const update of updates) {
-      await supabase.from('split_exercises').update({ display_order: update.display_order }).eq('id', update.id);
+    if (navigator.onLine) {
+      for (const update of updates) {
+        await supabase.from('split_exercises').update({ display_order: update.display_order }).eq('id', update.id);
+      }
+    } else {
+      import('../lib/offlineSync').then(({ queueSyncAction }) => {
+        for (const update of updates) {
+          queueSyncAction('update', 'split_exercises', { id: update.id, data: { display_order: update.display_order } });
+        }
+      });
     }
   };
 
-  const deleteSplit = async (splitId) => {
-    if (window.confirm("Are you sure you want to delete this routine? This will delete all its exercises.")) {
+  const executeDeleteSplit = async (splitId) => {
+    const updatedSplits = splits.filter((split) => split.id !== splitId);
+    setSplits(updatedSplits);
+    if (expandedSplitId === splitId) setExpandedSplitId('');
+    cacheData('splits_manager', { splits: updatedSplits, suggestions: exerciseSuggestions }).catch(console.error);
+    onChanged?.();
+
+    if (navigator.onLine) {
       const { error } = await supabase.from('splits').delete().eq('id', splitId);
-
-      if (error) {
-        setStatus(error.message);
-        return;
-      }
-
-      setSplits((current) => current.filter((split) => split.id !== splitId));
-      if (expandedSplitId === splitId) {
-        setExpandedSplitId('');
-      }
-      setStatus('Routine deleted');
-      onChanged?.();
+      if (error) setStatus(error.message);
+    } else {
+      import('../lib/offlineSync').then(({ queueSyncAction }) => {
+        queueSyncAction('delete', 'splits', { id: splitId });
+      });
     }
   };
 
@@ -372,12 +400,12 @@ export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, 
                 {/* Accordion Header */}
                 <div 
                   onClick={() => {
-                    if (!isEditing) {
+                    if (!isEditing && deletingSplitId !== split.id) {
                       playTapSound();
                       setExpandedSplitId(isExpanded ? '' : split.id);
                     }
                   }}
-                  className={`flex flex-wrap items-center justify-between p-4 cursor-pointer hover:bg-white/5 transition-colors ${isExpanded ? 'bg-white/5' : ''}`}
+                  className={`flex flex-wrap items-center justify-between p-4 cursor-pointer hover:bg-white/5 transition-colors relative overflow-hidden ${isExpanded ? 'bg-white/5' : ''}`}
                 >
                   <div className="min-w-0 flex-1 flex items-center gap-2">
                     {isEditing ? (
@@ -396,45 +424,62 @@ export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, 
                     )}
                   </div>
                   
-                  <div className="flex items-center gap-2 ml-4">
-                    {isEditing ? (
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); updateSplitName(split.id); }}
-                        className="grid h-8 w-8 place-items-center rounded bg-accent-lime text-app-bg hover:shadow-glow-lime active:scale-95"
-                      >
-                        <Check size={16} />
-                      </button>
+                    {deletingSplitId === split.id ? (
+                      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                        <span className="text-xs font-bold text-quiet-red animate-pulse">Deleting in {deleteCountdown}...</span>
+                        <button
+                          type="button"
+                          onClick={() => { setDeletingSplitId(''); setDeleteCountdown(0); }}
+                          className="h-8 rounded bg-card-elevated px-3 text-[11px] font-bold text-text-muted hover:text-text-main transition active:scale-95"
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     ) : (
-                      <button 
-                        onClick={(e) => { 
-                          e.stopPropagation(); 
-                          setEditNameValue(split.name);
-                          setEditingSplitId(split.id);
-                          setExpandedSplitId(split.id); // Ensure it's open
-                        }}
-                        className="grid h-8 w-8 place-items-center rounded bg-card-elevated text-text-muted hover:text-text-main active:scale-95"
-                      >
-                        <Edit2 size={14} />
-                      </button>
+                      <div className="flex items-center gap-2 ml-4">
+                        {isEditing ? (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); updateSplitName(split.id); }}
+                            className="grid h-8 w-8 place-items-center rounded bg-accent-lime text-app-bg hover:shadow-glow-lime active:scale-95"
+                          >
+                            <Check size={16} />
+                          </button>
+                        ) : (
+                          <button 
+                            onClick={(e) => { 
+                              e.stopPropagation(); 
+                              setEditNameValue(split.name);
+                              setEditingSplitId(split.id);
+                              setExpandedSplitId(split.id); // Ensure it's open
+                            }}
+                            className="grid h-8 w-8 place-items-center rounded bg-card-elevated text-text-muted hover:text-text-main active:scale-95"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                        )}
+                        
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); onLaunchSplit?.(split); }}
+                          className="flex h-8 items-center gap-1.5 rounded bg-accent-lime px-3 text-[11px] font-extrabold text-app-bg transition hover:shadow-glow-lime active:scale-95"
+                        >
+                          <Play size={12} className="fill-current" /> Launch
+                        </button>
+                        
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setDeletingSplitId(split.id); setDeleteCountdown(3); }}
+                          className="grid h-8 w-8 place-items-center rounded bg-card-elevated text-text-muted transition active:scale-95 hover:text-quiet-red hover:bg-quiet-red/10"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     )}
-                    
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); onLaunchSplit?.(split); }}
-                      className="flex h-8 items-center gap-1.5 rounded bg-accent-lime px-3 text-[11px] font-extrabold text-app-bg transition hover:shadow-glow-lime active:scale-95"
-                    >
-                      <Play size={12} className="fill-current" /> Launch
-                    </button>
-                    
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); deleteSplit(split.id); }}
-                      className="grid h-8 w-8 place-items-center rounded bg-card-elevated text-text-muted transition active:scale-95 hover:text-quiet-red hover:bg-quiet-red/10"
-                    >
-                      <Trash2 size={14} />
-                    </button>
                   </div>
-                </div>
+
+                  {deletingSplitId === split.id && (
+                    <div className="absolute top-0 left-0 h-full w-full pointer-events-none bg-quiet-red/10 border border-quiet-red shadow-[inset_0_0_20px_rgba(255,77,77,0.1)] transition-all duration-300 z-10" />
+                  )}
 
                 {/* Accordion Body */}
                 {isExpanded && (

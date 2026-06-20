@@ -51,8 +51,13 @@ export async function getCachedData(key) {
   });
 }
 
-// Queue an operation when offline
+// Queue an operation when offline (Legacy support for 'insert')
 export async function queueSyncData(table, payload) {
+  return queueSyncAction('insert', table, payload);
+}
+
+// Queue an explicit action ('insert', 'update', 'delete')
+export async function queueSyncAction(action, table, payload) {
   const db = await getDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readwrite');
@@ -61,11 +66,11 @@ export async function queueSyncData(table, payload) {
     // Check if user is authenticated
     supabase.auth.getSession().then(({ data }) => {
       const user_id = data?.session?.user?.id;
-      if (user_id) {
+      if (user_id && payload && typeof payload === 'object' && action !== 'delete') {
         payload.user_id = user_id;
       }
       
-      const record = { table, payload, timestamp: Date.now() };
+      const record = { action, table, payload, timestamp: Date.now() };
       store.add(record);
       
       tx.oncomplete = () => resolve();
@@ -93,7 +98,20 @@ export async function processSyncQueue() {
       // We process sequentially to avoid DB lock issues or FK constraints
       for (const item of items) {
         try {
-          const { error } = await supabase.from(item.table).insert(item.payload);
+          const action = item.action || 'insert'; // Legacy items default to 'insert'
+          let error = null;
+
+          if (action === 'insert') {
+            const { error: insertErr } = await supabase.from(item.table).insert(item.payload);
+            error = insertErr;
+          } else if (action === 'update') {
+            const { error: updateErr } = await supabase.from(item.table).update(item.payload.data).eq('id', item.payload.id);
+            error = updateErr;
+          } else if (action === 'delete') {
+            const { error: deleteErr } = await supabase.from(item.table).delete().eq('id', item.payload.id);
+            error = deleteErr;
+          }
+
           if (error) {
             console.error(`Failed to sync item to ${item.table}`, error);
             // Decide if we should keep it or delete it.

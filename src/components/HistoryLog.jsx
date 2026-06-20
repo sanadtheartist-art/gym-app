@@ -51,11 +51,27 @@ export default function HistoryLog({ refreshKey, onChanged, onRepeatWorkout }) {
 
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this workout?")) {
-      const { error } = await supabase.from('workouts').delete().eq('id', id);
-      if (!error) {
-        if (onChanged) onChanged();
+      // Optimistic Update
+      const updatedWorkouts = workouts.filter((w) => w.id !== id);
+      setWorkouts(updatedWorkouts);
+      cacheData('workouts_history', updatedWorkouts).catch(console.error);
+
+      if (navigator.onLine) {
+        const { error } = await supabase.from('workouts').delete().eq('id', id);
+        if (error) {
+          console.error('Error deleting workout:', error);
+          // Rollback if needed
+          setWorkouts(workouts);
+          cacheData('workouts_history', workouts).catch(console.error);
+        } else {
+          if (onChanged) onChanged();
+        }
       } else {
-        console.error('Error deleting workout:', error);
+        // Offline Sync Queue
+        import('../lib/offlineSync').then(({ queueSyncAction }) => {
+          queueSyncAction('delete', 'workouts', { id });
+          if (onChanged) onChanged();
+        });
       }
     }
   };
