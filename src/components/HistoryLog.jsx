@@ -88,15 +88,29 @@ export default function HistoryLog({ refreshKey, onChanged, onRepeatWorkout }) {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-lg font-extrabold text-text-main">{workout.exercise_name}</p>
-                  <p className="mt-0.5 text-xs font-medium text-text-muted">
-                    {new Date(workout.timestamp).toLocaleDateString(undefined, {
-                      weekday: 'short',
-                      month: 'short',
-                      day: 'numeric',
-                      hour: 'numeric',
-                      minute: '2-digit'
-                    })}
-                  </p>
+                  <div className="mt-1.5 flex items-center gap-2.5">
+                    {workout.media_url && (
+                      <div 
+                        className="h-8 w-8 shrink-0 overflow-hidden rounded border-[1.5px] bg-transparent shadow-sm"
+                        style={{ borderColor: 'var(--accent-primary)' }}
+                      >
+                        {workout.media_url.match(/\.(mp4|webm|ogg)$/i) ? (
+                          <video src={workout.media_url} className="h-full w-full object-cover mix-blend-luminosity opacity-80" />
+                        ) : (
+                          <img src={workout.media_url} alt="Workout Media" className="h-full w-full object-cover mix-blend-luminosity opacity-80" />
+                        )}
+                      </div>
+                    )}
+                    <p className="text-xs font-medium text-text-muted">
+                      {new Date(workout.timestamp).toLocaleDateString(undefined, {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit'
+                      })}
+                    </p>
+                  </div>
                 </div>
                 
                 <div className="flex gap-2 shrink-0">
@@ -117,15 +131,7 @@ export default function HistoryLog({ refreshKey, onChanged, onRepeatWorkout }) {
                     <Trash2 size={16} />
                   </button>
                 </div>
-              {workout.media_url && (
-                <div className="mt-2">
-                  {workout.media_url.match(/\.(mp4|webm|ogg)$/i) ? (
-                    <video src={workout.media_url} controls className="h-20 w-32 rounded-lg object-cover bg-black shadow-sm" />
-                  ) : (
-                    <img src={workout.media_url} alt="Workout Media" className="h-20 w-32 rounded-lg object-cover bg-card-elevated border border-glass-border shadow-sm" />
-                  )}
-                </div>
-              )}
+              </div>
 
               {workout.sets_data && workout.sets_data.length > 0 ? (
                 <div className="mt-1 grid gap-1.5">
