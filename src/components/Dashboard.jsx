@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChartNoAxesColumnIncreasing, Flame, Target, TrendingUp, Zap } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import { getCachedData, cacheData } from '../lib/offlineSync';
-import { MUSCLE_GROUP_MAPPING } from '../data/muscles';
+import { loadWorkouts } from '../lib/offlineSync';
+
 const toDateKey = (value) => {
   const date = new Date(value);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -28,7 +27,7 @@ function MonthGrid({ monthOffset, activeDateKeys }) {
 
   return (
     <div className="min-w-[164px]">
-      <p className="mb-3 text-[11px] font-semibold text-text-muted tracking-wider">{monthTitle(monthDate)}</p>
+      <p className="mb-3 text-[10px] font-semibold text-text-muted tracking-wider">{monthTitle(monthDate)}</p>
       <div className="grid grid-cols-7 gap-[3px]">
         {cells.map((cell, i) => (
           <span
@@ -140,34 +139,10 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
 
     async function loadDashboard() {
       setLoading(true);
-      
-      // Load from cache first
-      try {
-        const cached = await getCachedData('workouts_dashboard');
-        if (cached && isMounted) {
-          setWorkouts(cached);
-          setLoading(false);
-        }
-      } catch (err) {
-        console.error('Cache load error', err);
-      }
-
-      if (!navigator.onLine) {
-        if (isMounted) setLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('workouts')
-        .select('timestamp, sets, reps, weight_kg, muscle_group, exercise_name')
-        .order('timestamp', { ascending: false })
-        .limit(500);
-
+      const data = await loadWorkouts();
       if (isMounted) {
-        const finalData = error ? [] : data || [];
-        setWorkouts(finalData);
+        setWorkouts(data || []);
         setLoading(false);
-        cacheData('workouts_dashboard', finalData).catch(console.error);
       }
     }
 
@@ -209,18 +184,9 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
   const weeklyCount = useMemo(() => {
     const now = new Date();
     const startOfWeek = new Date(now);
-    // User requested the week starts on Saturday. 
-    // getDay(): 0=Sun, 1=Mon ... 6=Sat.
-    // Offset calculation: if today is Sat(6), subtract 0. If Sun(0), subtract 1.
-    const offsetToSaturday = (now.getDay() + 1) % 7;
-    startOfWeek.setDate(now.getDate() - offsetToSaturday);
+    startOfWeek.setDate(now.getDate() - now.getDay());
     startOfWeek.setHours(0, 0, 0, 0);
-    
-    // Count unique days visited this week instead of total exercises
-    const recentWorkouts = workouts.filter(w => new Date(w.timestamp) >= startOfWeek);
-    const uniqueDays = new Set(recentWorkouts.map(w => toDateKey(w.timestamp)));
-    
-    return uniqueDays.size;
+    return workouts.filter(w => new Date(w.timestamp) >= startOfWeek).length;
   }, [workouts]);
 
   // --- Muscle Recency ---
@@ -229,17 +195,11 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
     const result = {};
 
     MUSCLE_GROUPS.forEach(muscle => {
-      const mappedMuscles = MUSCLE_GROUP_MAPPING[muscle] || [muscle];
-      
-      const lastWorkout = workouts.find(w => {
-        if (!w.muscle_group) return false;
-        const workoutMuscles = w.muscle_group.split(',').map(m => m.trim().toLowerCase());
-        
-        return workoutMuscles.some(wm => 
-          mappedMuscles.some(mapped => wm.includes(mapped.toLowerCase()) || mapped.toLowerCase().includes(wm))
-        );
-      });
-      
+      const lastWorkout = workouts.find(w =>
+        w.muscle_group && w.muscle_group.split(',').map(m => m.trim()).some(m =>
+          m.toLowerCase().includes(muscle.toLowerCase()) || muscle.toLowerCase().includes(m.toLowerCase())
+        )
+      );
       if (!lastWorkout) {
         result[muscle] = null;
       } else {
@@ -278,16 +238,7 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
       .forEach(w => {
         w.muscle_group.split(',').forEach(m => {
           const muscle = m.trim();
-          if (muscle) {
-            let parentGroup = muscle;
-            for (const [group, subs] of Object.entries(MUSCLE_GROUP_MAPPING)) {
-              if (subs.some(sub => sub.toLowerCase() === muscle.toLowerCase())) {
-                parentGroup = group;
-                break;
-              }
-            }
-            counts[parentGroup] = (counts[parentGroup] || 0) + 1;
-          }
+          if (muscle) counts[muscle] = (counts[muscle] || 0) + 1;
         });
       });
     const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
@@ -353,7 +304,7 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
         <div className="rounded-card glass-card p-5 flex flex-col justify-between">
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">Streak</p>
           <div className="mt-3 flex items-center gap-2">
-            <div className={`grid h-10 w-10 place-items-center rounded-lg ${streak > 0 ? 'bg-accent-orange/15' : 'bg-card-elevated'}`}>
+            <div className={`grid h-10 w-10 place-items-center rounded-xl ${streak > 0 ? 'bg-accent-orange/15' : 'bg-card-elevated'}`}>
               <Flame size={22} className={streak > 0 ? 'text-accent-orange' : 'text-text-muted'} />
             </div>
             <span className="text-3xl font-extrabold text-text-main number-animate">{streak}</span>
@@ -364,12 +315,11 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
         {/* Weekly Goal */}
         <div className="rounded-card glass-card p-5 flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">Weekly Goal</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">This Week</p>
             <button
               type="button"
               onClick={() => setEditingGoal(v => !v)}
               className="grid h-7 w-7 place-items-center rounded-md text-text-muted transition hover:text-text-main active:scale-95 bg-card-elevated"
-              title="Edit Goal"
             >
               <Target size={13} />
             </button>
@@ -390,14 +340,14 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
                 }}
                 className="w-full rounded-xl bg-app-bg px-3 py-2 text-center text-lg font-bold text-text-main outline-none"
               />
-              <p className="text-center text-[10px] text-text-muted mt-1">Workouts per week</p>
+              <p className="text-center text-[10px] text-text-muted mt-1">workouts/week goal</p>
             </div>
           ) : (
             <div className="mt-2 flex items-center gap-3">
               <WeeklyGoalRing done={weeklyCount} goal={weeklyGoal} />
               <div>
                 <p className="text-xl font-extrabold text-text-main number-animate">{weeklyCount}</p>
-                <p className="text-[10px] text-text-muted">of {weeklyGoal} workouts</p>
+                <p className="text-[10px] text-text-muted">of {weeklyGoal} goal</p>
               </div>
             </div>
           )}
@@ -407,11 +357,10 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
       {/* Today's Focus */}
       {todaysFocus.length > 0 && (
         <div className="mt-3 rounded-card glass-card p-5">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-3">
             <Zap size={16} className="text-accent-lime" />
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">Suggested Focus</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">Today's Focus</p>
           </div>
-          <p className="text-[10px] text-text-muted mb-3">Muscles that are fully recovered and ready to train.</p>
           <div className="flex flex-wrap gap-2 pb-1">
             {todaysFocus.map(({ muscle, days }) => (
               <span
@@ -420,7 +369,7 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
               >
                 {muscle}
                 <span className="ml-1.5 text-text-muted font-medium">
-                  {days === null ? 'Not logged yet' : `${days}d ago`}
+                  {days === null ? 'Never' : `${days}d ago`}
                 </span>
               </span>
             ))}
@@ -438,7 +387,7 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
             return (
               <span
                 key={muscle}
-                className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold ${colors.bg} ${colors.text}`}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold ${colors.bg} ${colors.text}`}
               >
                 <span className={`h-1.5 w-1.5 rounded-full ${colors.dot}`} />
                 {muscle}
@@ -462,7 +411,7 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">Consistency</p>
             <p className="mt-1 text-lg font-bold text-text-main">{loading ? 'Syncing' : `${activeDateKeys.size} active days`}</p>
           </div>
-          <div className="grid h-10 w-10 place-items-center rounded-lg bg-card-elevated">
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-card-elevated">
             <ChartNoAxesColumnIncreasing className="text-text-muted" size={18} />
           </div>
         </div>
@@ -476,7 +425,7 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
       <div className="mt-3 rounded-card glass-card p-5">
         <div className="flex items-center justify-between mb-3">
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">Rolling 7-Day Volume</p>
-          <div className="grid h-8 w-8 place-items-center rounded-lg bg-card-elevated">
+          <div className="grid h-8 w-8 place-items-center rounded-xl bg-card-elevated">
             <TrendingUp size={14} className="text-accent-lime" />
           </div>
         </div>

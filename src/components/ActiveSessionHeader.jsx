@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pause, Play, RotateCcw, TimerReset } from 'lucide-react';
+import { playTimerAlert } from '../lib/sounds';
 
 const formatDuration = (totalSeconds) => {
   const hours = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
@@ -16,6 +17,7 @@ export default function ActiveSessionHeader({ onSessionToolsChange, onRestTimerU
     if (!isRestActive || restSeconds <= 0) {
       if (restSeconds <= 0 && isRestActive) {
         setIsRestActive(false); // Timer finished
+        playTimerAlert();
       }
       return undefined;
     }

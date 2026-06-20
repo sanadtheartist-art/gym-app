@@ -17,7 +17,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { supabase } from '../lib/supabase';
+import { loadWorkouts } from '../lib/offlineSync';
 
 const keyForDate = (value) => {
   const date = new Date(value);
@@ -45,14 +45,9 @@ export default function AnalyticsDash({ refreshKey }) {
 
     async function loadAnalytics() {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('workouts')
-        .select('timestamp, sets, reps, weight_kg, sets_data, muscle_group, exercise_name')
-        .order('timestamp', { ascending: true })
-        .limit(1000);
-
+      const data = await loadWorkouts();
       if (!isMounted) return;
-      setWorkouts(error ? [] : data || []);
+      setWorkouts(data || []);
       setLoading(false);
     }
 
