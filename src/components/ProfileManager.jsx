@@ -4,14 +4,10 @@ import { supabase } from '../lib/supabase';
 import DataPortability from './DataPortability';
 
 const THEMES = [
-  { id: 'default',    name: 'Cyberpunk', bg: '#0D0D0D', card: '#1A1A1A', accent: '#C8FF00', text: '#F0F0F0' },
-  { id: 'glass',      name: 'Glass',     bg: '#E2D9F3', card: '#FFFFFF80', accent: '#7B2CBF', text: '#10002B' },
-  { id: 'retro',      name: 'Retro',     bg: '#12002A', card: '#1E0040', accent: '#FF2DF7', text: '#F0E6FF' },
-  { id: 'newspaper',  name: 'Newspaper', bg: '#FFFEF7', card: '#FAFAF2', accent: '#1C1C1C', text: '#1C1C1C' },
-  { id: 'ocean',      name: 'Ocean',     bg: '#060B19', card: '#0B132B', accent: '#00F0FF', text: '#E2E8F0' },
-  { id: 'brutalist',  name: 'Brutalist', bg: '#FFF000', card: '#FFFFFF', accent: '#000000', text: '#000000' },
-  { id: 'matrix',     name: 'Terminal',  bg: '#000A00', card: '#001500', accent: '#00FF41', text: '#00FF41' },
-  { id: 'sunset',     name: 'Sunset',    bg: '#0F0616', card: '#1A0A24', accent: '#FF6B35', text: '#FFE4D6' },
+  { id: 'default',      name: 'Cyberpunk',     bg: '#0D0D0D', card: '#1A1A1A', accent: '#C8FF00', text: '#F0F0F0' },
+  { id: 'light',        name: 'Light',         bg: '#F4F4F5', card: '#FFFFFF', accent: '#4F46E5', text: '#111111' },
+  { id: 'mono',         name: 'Mono',          bg: '#0A0A0A', card: '#141414', accent: '#FFFFFF', text: '#EEEEEE' },
+  { id: 'highcontrast', name: 'Hi-Contrast',   bg: '#000000', card: '#111111', accent: '#FF0000', text: '#FFFFFF' },
 ];
 
 const FITNESS_GOALS = ['Build Muscle', 'Lose Fat', 'Increase Strength', 'Improve Endurance', 'Athletic Performance', 'General Fitness'];

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Activity, ClipboardList, Database, FolderOpen, Grid2X2, Plus, User } from 'lucide-react';
+import { Activity, ClipboardList, FolderOpen, Grid2X2, Plus, User } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import AuthScreen from './components/AuthScreen';
 import ActiveSessionHeader from './components/ActiveSessionHeader';
@@ -32,11 +32,13 @@ export default function App() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [repeatWorkoutData, setRepeatWorkoutData] = useState(null);
   const [restOverlayVisible, setRestOverlayVisible] = useState(false);
+  const [restTimerState, setRestTimerState] = useState({ seconds: 0, active: false });
   const [profileVisible, setProfileVisible] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState(null);
   const [avatarSvg, setAvatarSvg] = useState(null);
-
   const [showWelcome, setShowWelcome] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
+  const [summaryData, setSummaryData] = useState(null);
   const [topBarVisible, setTopBarVisible] = useState(true);
   const [prevScrollY, setPrevScrollY] = useState(0);
 
@@ -53,9 +55,6 @@ export default function App() {
     window.addEventListener('avatarUpdated', handleAvatarUpdate);
     return () => window.removeEventListener('avatarUpdated', handleAvatarUpdate);
   }, []);
-  const [restTimerState, setRestTimerState] = useState({ seconds: 0, active: false });
-  const [showSummary, setShowSummary] = useState(false);
-  const [summaryData, setSummaryData] = useState(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -69,9 +68,6 @@ export default function App() {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
-
-    const savedTheme = localStorage.getItem('theme') || 'cyberpunk';
-    document.documentElement.setAttribute('data-theme', savedTheme);
 
     return () => subscription.unsubscribe();
   }, []);
@@ -137,12 +133,18 @@ export default function App() {
   const handleScroll = (e) => {
     const currentScrollY = e.target.scrollTop;
     if (currentScrollY > prevScrollY && currentScrollY > 50) {
-      setTopBarVisible(false); // scrolling down
+      setTopBarVisible(false);
     } else if (currentScrollY < prevScrollY) {
-      setTopBarVisible(true); // scrolling up
+      setTopBarVisible(true);
     }
     setPrevScrollY(currentScrollY);
   };
+
+  // Convert email username to CamelCase (capitalize first letter only)
+  const displayName = (() => {
+    const name = session.user.email.split('@')[0];
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  })();
 
   return (
     <div className="bg-app-bg h-[100dvh] flex justify-center overflow-hidden">
@@ -151,42 +153,43 @@ export default function App() {
       )}
       {/* Centered mobile-like container */}
       <div className="w-full max-w-md bg-app-bg text-text-main font-sans relative h-[100dvh] flex flex-col">
-        
+
         {/* Scrolling Content Area */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden relative" onScroll={handleScroll}>
-          
-          {/* Top User Bar (Scrolls with content) */}
+
+          {/* Top User Bar — single line, scroll-sensitive */}
           <div className={`flex items-center justify-between px-4 py-3 border-b border-glass-border transition-transform duration-300 ease-in-out ${topBarVisible ? 'translate-y-0' : '-translate-y-[120%]'}`}>
             <div className="flex items-center gap-3">
-               <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm overflow-hidden border-2 flex-shrink-0"
-                 style={{ background: 'var(--card-elevated)', borderColor: 'var(--accent-primary)', color: 'var(--accent-primary)' }}
-               >
-                 {avatarSvg ? (
-                   <div className="w-full h-full p-0.5 [&>svg]:w-full [&>svg]:h-full" dangerouslySetInnerHTML={{ __html: avatarSvg }} />
-                 ) : avatarUrl ? (
-                   <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-                 ) : (
-                   session.user.email.split('@')[0][0].toUpperCase()
-                 )}
-               </div>
-               <div className="flex flex-col">
-                 <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Welcome back</span>
-                 <span
-                   className="text-base font-extrabold leading-tight greeting-animated"
-                   style={{
-                     background: 'var(--greeting-gradient)',
-                     WebkitBackgroundClip: 'text',
-                     WebkitTextFillColor: 'transparent',
-                     backgroundClip: 'text',
-                     backgroundSize: '200% auto',
-                     animation: 'greetingShimmer 4s linear infinite',
-                   }}
-                 >
-                   {session.user.email.split('@')[0]}
-                 </span>
-               </div>
+              <div
+                className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm overflow-hidden border-2 flex-shrink-0"
+                style={{ background: 'var(--card-elevated)', borderColor: 'var(--accent-primary)', color: 'var(--accent-primary)' }}
+              >
+                {avatarSvg ? (
+                  <div className="w-full h-full p-0.5 [&>svg]:w-full [&>svg]:h-full" dangerouslySetInnerHTML={{ __html: avatarSvg }} />
+                ) : avatarUrl ? (
+                  <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  displayName[0]
+                )}
+              </div>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>Welcome back,</span>
+                <span
+                  className="text-lg font-extrabold leading-none"
+                  style={{
+                    background: 'var(--greeting-gradient)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                    backgroundSize: '200% auto',
+                    animation: 'greetingShimmer 4s linear infinite',
+                  }}
+                >
+                  {displayName}
+                </span>
+              </div>
             </div>
-            <button 
+            <button
               onClick={() => setProfileVisible(true)}
               className="p-2 transition-colors rounded-lg"
               style={{ color: 'var(--text-muted)' }}
@@ -281,7 +284,6 @@ export default function App() {
           repeatWorkoutData={repeatWorkoutData}
         />
 
-        {/* Rest Timer Overlay */}
         {restOverlayVisible && (
           <RestTimerOverlay
             seconds={restTimerState.seconds}
@@ -291,7 +293,6 @@ export default function App() {
           />
         )}
 
-        {/* Workout Summary */}
         {showSummary && summaryData && (
           <WorkoutSummary
             data={summaryData}

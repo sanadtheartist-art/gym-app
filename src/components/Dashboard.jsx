@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChartNoAxesColumnIncreasing, Database, Flame, Target, TrendingUp, Zap, Paintbrush } from 'lucide-react';
+import { ChartNoAxesColumnIncreasing, Flame, Target, TrendingUp, Zap } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const toDateKey = (value) => {
@@ -133,14 +133,6 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
     return parseInt(localStorage.getItem('weeklyGoal') || '5', 10);
   });
   const [editingGoal, setEditingGoal] = useState(false);
-  const [showThemePicker, setShowThemePicker] = useState(false);
-  const themes = ['cyberpunk', 'ocean', 'monochrome'];
-
-  const handleThemeChange = (theme) => {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
-    setShowThemePicker(false);
-  };
 
   useEffect(() => {
     let isMounted = true;
@@ -280,39 +272,6 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">Overview</p>
           <h1 className="mt-0.5 text-3xl font-extrabold text-text-main">Workouts</h1>
-        </div>
-        <div className="flex gap-2">
-          <div className="relative">
-            <button
-              type="button"
-              aria-label="Change theme"
-              onClick={() => setShowThemePicker(p => !p)}
-              className="grid h-11 w-11 place-items-center rounded-xl glass-card text-text-muted transition active:scale-95 hover:text-text-main"
-            >
-              <Paintbrush size={19} />
-            </button>
-            {showThemePicker && (
-              <div className="absolute right-0 top-14 z-50 flex flex-col gap-1 rounded-xl glass-card p-2 shadow-xl animate-fade-in w-32">
-                {themes.map(t => (
-                  <button
-                    key={t}
-                    onClick={() => handleThemeChange(t)}
-                    className="rounded-lg px-3 py-2 text-xs font-bold text-left hover:bg-card-elevated text-text-main capitalize"
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <button
-            type="button"
-            aria-label="Open data portability"
-            onClick={onOpenPortability}
-            className="grid h-11 w-11 place-items-center rounded-xl glass-card text-text-muted transition active:scale-95 hover:text-text-main"
-          >
-            <Database size={19} />
-          </button>
         </div>
       </div>
 

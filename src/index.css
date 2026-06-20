@@ -21,8 +21,10 @@ html {
   background-color: var(--app-bg);
 }
 
+/* =========================================
+   1. CYBERPUNK (default) — neon-lime on near-black
+   ========================================= */
 :root {
-  /* Cyberpunk Default Theme */
   --app-bg: #0D0D0D;
   --card-bg: #1A1A1A;
   --card-elevated: #222222;
@@ -42,158 +44,73 @@ html {
   --greeting-gradient: linear-gradient(90deg, #C8FF00, #FF6B2C);
 }
 
-:root[data-theme="glass"] {
-  --app-bg: #E2D9F3;
-  --card-bg: rgba(255, 255, 255, 0.2);
-  --card-elevated: rgba(255, 255, 255, 0.35);
-  --accent-primary: #7B2CBF;
-  --accent-secondary: #FF9E00;
-  --text-main: #10002B;
-  --text-muted: #5A189A;
-  --glass-border: rgba(255, 255, 255, 0.5);
-  --quiet-green: #7B2CBF;
-  --quiet-amber: #FF9E00;
-  --quiet-red: #E85D04;
+/* =========================================
+   2. LIGHT — clean white, indigo accents
+   ========================================= */
+:root[data-theme="light"] {
+  --app-bg: #F4F4F5;
+  --card-bg: #FFFFFF;
+  --card-elevated: #E9E9EC;
+  --accent-primary: #4F46E5;
+  --accent-secondary: #F59E0B;
+  --text-main: #111111;
+  --text-muted: #71717A;
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --quiet-green: #16A34A;
+  --quiet-amber: #D97706;
+  --quiet-red: #DC2626;
+  --quiet-purple: #7C3AED;
+  --quiet-blue: #2563EB;
+  --font-body: 'Inter', sans-serif;
+  --font-heading: 'Inter', sans-serif;
+  --icon-stroke: 1.5;
+  --greeting-gradient: linear-gradient(90deg, #4F46E5, #F59E0B);
+}
+
+/* =========================================
+   3. MONOCHROME — zero color, pure greyscale
+   ========================================= */
+:root[data-theme="mono"] {
+  --app-bg: #0A0A0A;
+  --card-bg: #141414;
+  --card-elevated: #1F1F1F;
+  --accent-primary: #FFFFFF;
+  --accent-secondary: #AAAAAA;
+  --text-main: #EEEEEE;
+  --text-muted: #555555;
+  --glass-border: rgba(255, 255, 255, 0.07);
+  --quiet-green: #CCCCCC;
+  --quiet-amber: #999999;
+  --quiet-red: #888888;
+  --quiet-purple: #AAAAAA;
+  --quiet-blue: #BBBBBB;
+  --font-body: 'Inter', sans-serif;
+  --font-heading: 'Inter', sans-serif;
+  --icon-stroke: 1.5;
+  --greeting-gradient: linear-gradient(90deg, #FFFFFF, #888888);
+}
+
+/* =========================================
+   4. HIGH CONTRAST — pure black/white + vivid red
+   ========================================= */
+:root[data-theme="highcontrast"] {
+  --app-bg: #000000;
+  --card-bg: #111111;
+  --card-elevated: #1C1C1C;
+  --accent-primary: #FF0000;
+  --accent-secondary: #FFFF00;
+  --text-main: #FFFFFF;
+  --text-muted: #AAAAAA;
+  --glass-border: rgba(255, 255, 255, 0.25);
+  --quiet-green: #00FF00;
+  --quiet-amber: #FFFF00;
+  --quiet-red: #FF0000;
+  --quiet-purple: #FF00FF;
+  --quiet-blue: #00FFFF;
   --font-body: 'Inter', sans-serif;
   --font-heading: 'Inter', sans-serif;
   --icon-stroke: 2;
-  --greeting-gradient: linear-gradient(90deg, #7B2CBF, #FF9E00);
-}
-
-html[data-theme="glass"] body::before,
-html[data-theme="glass"] body::after {
-  content: '';
-  position: fixed;
-  width: 50vw;
-  height: 50vw;
-  border-radius: 50%;
-  z-index: -1;
-  filter: blur(80px);
-  animation: blobFloat 12s infinite alternate ease-in-out;
-  opacity: 0.6;
-}
-html[data-theme="glass"] body::before {
-  top: -10vw;
-  left: -10vw;
-  background: #7B2CBF;
-}
-html[data-theme="glass"] body::after {
-  bottom: -10vw;
-  right: -10vw;
-  background: #FF9E00;
-  animation-delay: -6s;
-  animation-duration: 15s;
-}
-
-@keyframes blobFloat {
-  0% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(10vw, 5vw) scale(1.1); }
-  100% { transform: translate(-5vw, 15vw) scale(0.9); }
-}
-
-:root[data-theme="retro"] {
-  --app-bg: #12002A;
-  --card-bg: #1E0040;
-  --card-elevated: #2C0060;
-  --accent-primary: #FF2DF7;
-  --accent-secondary: #0FF4F4;
-  --text-main: #F0E6FF;
-  --text-muted: #8B5FCF;
-  --glass-border: rgba(255, 45, 247, 0.5);
-  --quiet-green: #0FF4F4;
-  --quiet-amber: #FFB800;
-  --quiet-red: #FF2D55;
-  --font-body: 'VT323', monospace;
-  --font-heading: 'VT323', monospace;
-  --icon-stroke: 1.5;
-  --greeting-gradient: linear-gradient(90deg, #FF2DF7, #0FF4F4);
-}
-
-:root[data-theme="newspaper"] {
-  --app-bg: #FFFEF7;
-  --card-bg: #FAFAF2;
-  --card-elevated: #EDEADC;
-  --accent-primary: #1C1C1C;
-  --accent-secondary: #8B1A1A;
-  --text-main: #1C1C1C;
-  --text-muted: #7A7A6A;
-  --glass-border: rgba(0, 0, 0, 0.15);
-  --quiet-green: #2D4A1E;
-  --quiet-amber: #8B4513;
-  --quiet-red: #8B1A1A;
-  --font-body: 'Lora', serif;
-  --font-heading: 'Playfair Display', serif;
-  --icon-stroke: 1.5;
-  --greeting-gradient: linear-gradient(90deg, #1C1C1C, #8B1A1A);
-}
-
-:root[data-theme="ocean"] {
-  --app-bg: #060B19;
-  --card-bg: #0B132B;
-  --card-elevated: #152243;
-  --accent-primary: #00F0FF;
-  --accent-secondary: #FF2A6D;
-  --text-main: #E2E8F0;
-  --text-muted: #64748B;
-  --glass-border: rgba(0, 240, 255, 0.2);
-  --font-body: 'Rajdhani', 'Inter', sans-serif;
-  --font-heading: 'Exo 2', sans-serif;
-  --icon-stroke: 1.5;
-  --greeting-gradient: linear-gradient(90deg, #00F0FF, #FF2A6D);
-}
-
-:root[data-theme="brutalist"] {
-  --app-bg: #FFF000;
-  --card-bg: #FFFFFF;
-  --card-elevated: #F4F4F4;
-  --accent-primary: #000000;
-  --accent-secondary: #FF0000;
-  --text-main: #000000;
-  --text-muted: #333333;
-  --glass-border: #000000;
-  --quiet-green: #000000;
-  --quiet-amber: #000000;
-  --quiet-red: #FF0000;
-  --font-body: 'Space Mono', monospace;
-  --font-heading: 'Unbounded', sans-serif;
-  --icon-stroke: 2.5;
-  --greeting-gradient: linear-gradient(90deg, #000000, #333333);
-}
-
-:root[data-theme="matrix"] {
-  --app-bg: #000A00;
-  --card-bg: #001500;
-  --card-elevated: #002500;
-  --accent-primary: #00FF41;
-  --accent-secondary: #00B32C;
-  --text-main: #00FF41;
-  --text-muted: #008F11;
-  --glass-border: rgba(0, 255, 65, 0.4);
-  --quiet-green: #00FF41;
-  --quiet-amber: #00CC20;
-  --quiet-red: #FF0000;
-  --font-body: 'Share Tech Mono', monospace;
-  --font-heading: 'Share Tech Mono', monospace;
-  --icon-stroke: 1;
-  --greeting-gradient: linear-gradient(90deg, #00FF41, #00B32C);
-}
-
-:root[data-theme="sunset"] {
-  --app-bg: #0F0616;
-  --card-bg: #1A0A24;
-  --card-elevated: #271535;
-  --accent-primary: #FF6B35;
-  --accent-secondary: #FF3CAC;
-  --text-main: #FFE4D6;
-  --text-muted: #9B6B7A;
-  --glass-border: rgba(255, 107, 53, 0.3);
-  --quiet-green: #FFD700;
-  --quiet-amber: #FF8C00;
-  --quiet-red: #FF3CAC;
-  --font-body: 'Unbounded', sans-serif;
-  --font-heading: 'Unbounded', sans-serif;
-  --icon-stroke: 2;
-  --greeting-gradient: linear-gradient(90deg, #FF6B35, #FF3CAC);
+  --greeting-gradient: linear-gradient(90deg, #FF0000, #FFFF00);
 }
 
 
