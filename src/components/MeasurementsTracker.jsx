@@ -151,11 +151,11 @@ export default function MeasurementsTracker({ refreshKey }) {
         )}
       </div>
 
-      <form onSubmit={handleSubmit} className="flex gap-2">
+      <form onSubmit={handleSubmit} className="flex w-full items-center gap-2">
         <select
           value={site}
           onChange={(e) => setSite(e.target.value)}
-          className="h-12 w-[110px] shrink-0 rounded-xl glass-card px-3 text-sm font-medium text-text-main outline-none appearance-none bg-app-bg"
+          className="h-12 w-[96px] shrink-0 rounded-xl glass-card px-3 text-sm font-medium text-text-main outline-none appearance-none bg-app-bg"
         >
           {SITES.map((s) => (
             <option key={s} value={s}>{s}</option>
@@ -167,7 +167,7 @@ export default function MeasurementsTracker({ refreshKey }) {
           placeholder="Size (cm)"
           value={measurement}
           onChange={(e) => setMeasurement(e.target.value)}
-          className="h-12 flex-1 rounded-xl glass-card px-4 text-sm font-medium text-text-main outline-none focus:border-accent-lime transition"
+          className="h-12 min-w-0 flex-1 rounded-xl glass-card px-4 text-sm font-medium text-text-main outline-none focus:border-accent-lime transition"
         />
         <button
           type="submit"
