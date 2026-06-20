@@ -83,6 +83,30 @@ export default function WorkoutSummary({ data, onClose }) {
 
   const durationMin = Math.round((data.session_duration_seconds || 0) / 60);
 
+  const handleShare = async () => {
+    const title = prBroken ? "New PR Alert! 🏆" : "Workout Complete! 🔥";
+    const text = `Just crushed ${data.exercise_name}!\n\n` +
+      `🔥 Sets: ${totalSets}\n` +
+      `🏋️ Max Wt: ${maxWeight} kg\n` +
+      `📦 Volume: ${Math.round(totalVolume)} kg\n` +
+      `⏱️ Time: ${durationMin} mins\n\n` +
+      `Logged with Antigravity 🚀`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, text });
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          navigator.clipboard.writeText(`${title}\n\n${text}`);
+          alert('Copied to clipboard!');
+        }
+      }
+    } else {
+      navigator.clipboard.writeText(`${title}\n\n${text}`);
+      alert('Copied to clipboard!');
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/80 backdrop-blur-md p-4 pb-12 sm:items-center animate-fade-in">
       <div className={`w-full max-w-sm rounded-[32px] glass-card overflow-hidden shadow-2xl transition-all duration-700 ${animating ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'}`}>
@@ -141,6 +165,7 @@ export default function WorkoutSummary({ data, onClose }) {
           <div className="flex gap-3">
             <button
               type="button"
+              onClick={handleShare}
               className="flex-1 flex items-center justify-center gap-2 h-14 rounded-xl glass-card text-sm font-bold text-text-main transition active:scale-95 hover:bg-white/5"
             >
               <Share size={18} /> Share
