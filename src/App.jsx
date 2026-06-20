@@ -228,33 +228,33 @@ export default function App() {
 
             {activeTab === 'data' ? <DataPortability onImported={bumpRefresh} /> : null}
           </main>
-
-          {/* Bottom Nav (Now inside scroll area, not fixed) */}
-          <nav className="bg-app-bg/90 px-4 pb-8 pt-4 backdrop-blur-xl border-t border-glass-border z-40 mt-auto">
-            <div className="mx-auto flex max-w-full items-center justify-around rounded-2xl glass-card px-2 py-1.5">
-              {tabs.map((tab) => {
-                const Icon = tab.icon;
-                const active = activeTab === tab.id;
-                return (
-                  <button
-                    type="button"
-                    key={tab.id}
-                    aria-label={tab.label}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`relative grid h-12 w-12 place-items-center rounded-xl transition-all duration-200 active:scale-90 ${
-                      active ? 'text-accent-primary' : 'text-text-muted hover:text-text-main/70'
-                    }`}
-                  >
-                    <Icon size={21} />
-                    {active && (
-                      <span className="absolute -bottom-0.5 left-1/2 h-1 w-5 -translate-x-1/2 rounded-full bg-accent-primary animate-scale-in" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </nav>
         </div> {/* End of Scrolling Content Area */}
+
+        {/* Bottom Nav (Scroll-sensitive floating bar with pure glassmorphism) */}
+        <nav className={`absolute bottom-0 w-full px-4 pb-6 pt-2 z-40 transition-transform duration-300 ease-in-out ${topBarVisible ? 'translate-y-0' : 'translate-y-[120%]'}`}>
+          <div className="mx-auto flex max-w-full items-center justify-around rounded-2xl px-2 py-1.5 backdrop-blur-2xl border border-glass-border shadow-2xl bg-white/5">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              const active = activeTab === tab.id;
+              return (
+                <button
+                  type="button"
+                  key={tab.id}
+                  aria-label={tab.label}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`relative grid h-12 w-12 place-items-center rounded-xl transition-all duration-200 active:scale-90 ${
+                    active ? 'text-accent-primary' : 'text-text-muted hover:text-text-main/70'
+                  }`}
+                >
+                  <Icon size={21} />
+                  {active && (
+                    <span className="absolute -bottom-0.5 left-1/2 h-1 w-5 -translate-x-1/2 rounded-full bg-accent-primary animate-scale-in" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
 
         <InputEngine
           visible={inputVisible}
