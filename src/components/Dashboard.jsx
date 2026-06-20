@@ -209,9 +209,18 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
   const weeklyCount = useMemo(() => {
     const now = new Date();
     const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay());
+    // User requested the week starts on Saturday. 
+    // getDay(): 0=Sun, 1=Mon ... 6=Sat.
+    // Offset calculation: if today is Sat(6), subtract 0. If Sun(0), subtract 1.
+    const offsetToSaturday = (now.getDay() + 1) % 7;
+    startOfWeek.setDate(now.getDate() - offsetToSaturday);
     startOfWeek.setHours(0, 0, 0, 0);
-    return workouts.filter(w => new Date(w.timestamp) >= startOfWeek).length;
+    
+    // Count unique days visited this week instead of total exercises
+    const recentWorkouts = workouts.filter(w => new Date(w.timestamp) >= startOfWeek);
+    const uniqueDays = new Set(recentWorkouts.map(w => toDateKey(w.timestamp)));
+    
+    return uniqueDays.size;
   }, [workouts]);
 
   // --- Muscle Recency ---
@@ -355,11 +364,12 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
         {/* Weekly Goal */}
         <div className="rounded-card glass-card p-5 flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">This Week</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">Weekly Goal</p>
             <button
               type="button"
               onClick={() => setEditingGoal(v => !v)}
               className="grid h-7 w-7 place-items-center rounded-md text-text-muted transition hover:text-text-main active:scale-95 bg-card-elevated"
+              title="Edit Goal"
             >
               <Target size={13} />
             </button>
@@ -380,14 +390,14 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
                 }}
                 className="w-full rounded-xl bg-app-bg px-3 py-2 text-center text-lg font-bold text-text-main outline-none"
               />
-              <p className="text-center text-[10px] text-text-muted mt-1">workouts/week goal</p>
+              <p className="text-center text-[10px] text-text-muted mt-1">Workouts per week</p>
             </div>
           ) : (
             <div className="mt-2 flex items-center gap-3">
               <WeeklyGoalRing done={weeklyCount} goal={weeklyGoal} />
               <div>
                 <p className="text-xl font-extrabold text-text-main number-animate">{weeklyCount}</p>
-                <p className="text-[10px] text-text-muted">of {weeklyGoal} goal</p>
+                <p className="text-[10px] text-text-muted">of {weeklyGoal} workouts</p>
               </div>
             </div>
           )}
@@ -397,10 +407,11 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
       {/* Today's Focus */}
       {todaysFocus.length > 0 && (
         <div className="mt-3 rounded-card glass-card p-5">
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-1">
             <Zap size={16} className="text-accent-lime" />
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">Today's Focus</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">Suggested Focus</p>
           </div>
+          <p className="text-[10px] text-text-muted mb-3">Muscles that are fully recovered and ready to train.</p>
           <div className="flex flex-wrap gap-2 pb-1">
             {todaysFocus.map(({ muscle, days }) => (
               <span
@@ -409,7 +420,7 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
               >
                 {muscle}
                 <span className="ml-1.5 text-text-muted font-medium">
-                  {days === null ? 'Never' : `${days}d ago`}
+                  {days === null ? 'Not logged yet' : `${days}d ago`}
                 </span>
               </span>
             ))}
