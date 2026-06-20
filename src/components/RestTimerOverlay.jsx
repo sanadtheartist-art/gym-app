@@ -82,7 +82,7 @@ export default function RestTimerOverlay({ seconds, isActive, sessionTools, onCl
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-          <span className={`font-mono text-7xl font-extrabold tracking-tighter ${localSeconds <= 10 && localSeconds > 0 ? 'text-quiet-red animate-pulse' : 'text-text-main'}`}>
+          <span className={`text-7xl font-black tabular-nums ${localSeconds <= 10 && localSeconds > 0 ? 'text-quiet-red animate-pulse' : 'text-text-main'}`}>
             {formatTime(localSeconds)}
           </span>
           <span className="text-sm font-medium text-text-muted mt-2">remaining</span>
