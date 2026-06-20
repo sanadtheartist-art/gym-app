@@ -270,10 +270,10 @@ export default function App() {
           type="button"
           aria-label="Log new set"
           onClick={handleOpenInput}
-          className="fixed bottom-6 right-[calc(50%-10rem)] md:right-[calc(50%-12rem)] z-30 grid h-14 w-14 place-items-center rounded-full bg-accent-primary text-app-bg shadow-[0_0_16px_var(--accent-primary)] transition hover:shadow-[0_0_32px_var(--accent-primary)] active:scale-90"
+          className="fixed bottom-24 right-[calc(50%-10rem)] md:right-[calc(50%-12rem)] z-30 grid h-11 w-11 place-items-center rounded-full bg-accent-primary text-app-bg shadow-[0_0_16px_var(--accent-primary)] transition hover:shadow-[0_0_32px_var(--accent-primary)] active:scale-90"
           style={{ transform: 'translateX(50%)' }}
         >
-          <Plus size={24} strokeWidth={2.5} />
+          <Plus size={20} strokeWidth={2.5} />
         </button>
 
         {/* Rest Timer Overlay */}
