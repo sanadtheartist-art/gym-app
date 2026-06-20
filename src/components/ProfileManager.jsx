@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Upload, User, Palette, LogOut, Check, Pencil, Target, Ruler, Scale, Trash2, AlertTriangle } from 'lucide-react';
+import { X, Upload, User, Palette, LogOut, Check, Pencil, Target, Ruler, Scale, Trash2, AlertTriangle, Database } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const THEMES = [
@@ -317,8 +317,17 @@ export default function ProfileManager({ visible, onClose, session, onLogout }) 
             </div>
           </div>
 
-          {/* Sign Out */}
+          {/* Sign Out and Data Vault */}
           <div className="border-t border-glass-border pt-5 flex flex-col gap-3">
+            <button
+              onClick={onOpenDataVault}
+              className="w-full flex items-center justify-center gap-3 py-3.5 rounded-2xl font-bold transition active:scale-95 bg-card-elevated border border-glass-border hover:border-accent-primary"
+              style={{ color: 'var(--text-main)' }}
+            >
+              <Database size={18} className="text-accent-primary" />
+              Data Vault
+            </button>
+
             <button
               onClick={() => { onClose(); onLogout(); }}
               className="w-full flex items-center justify-center gap-3 py-3.5 rounded-2xl font-bold transition active:scale-95 border"

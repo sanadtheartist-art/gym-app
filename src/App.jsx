@@ -19,7 +19,6 @@ const tabs = [
   { id: 'analytics', label: 'Analytics', icon: Activity },
   { id: 'log', label: 'Log', icon: ClipboardList },
   { id: 'splits', label: 'Splits', icon: FolderOpen },
-  { id: 'data', label: 'Data', icon: Database },
 ];
 
 export default function App() {
@@ -232,11 +231,11 @@ export default function App() {
 
         {/* Bottom Nav (Scroll-sensitive floating bar with pure glassmorphism) */}
         <nav className={`absolute bottom-0 w-full px-4 pb-6 pt-2 z-40 transition-transform duration-300 ease-in-out ${topBarVisible ? 'translate-y-0' : 'translate-y-[120%]'}`}>
-          <div className="mx-auto flex max-w-full items-center justify-around rounded-2xl px-2 py-1.5 backdrop-blur-2xl border border-glass-border shadow-2xl bg-white/5">
-            {tabs.map((tab) => {
+          <div className="mx-auto flex max-w-full items-center justify-around rounded-2xl px-2 py-1.5 backdrop-blur-2xl border border-glass-border shadow-2xl bg-white/5 relative">
+            {tabs.map((tab, index) => {
               const Icon = tab.icon;
               const active = activeTab === tab.id;
-              return (
+              const btn = (
                 <button
                   type="button"
                   key={tab.id}
@@ -252,6 +251,24 @@ export default function App() {
                   )}
                 </button>
               );
+
+              if (index === 1) {
+                return (
+                  <div key={tab.id} className="flex items-center gap-1">
+                    {btn}
+                    <button
+                      type="button"
+                      aria-label="Log new set"
+                      onClick={handleOpenInput}
+                      className="relative -top-5 mx-2 z-50 grid h-[3.75rem] w-[3.75rem] flex-shrink-0 place-items-center rounded-full bg-accent-primary text-app-bg shadow-[0_0_16px_var(--accent-primary)] transition hover:shadow-[0_0_32px_var(--accent-primary)] active:scale-90 border-[4px] border-[var(--app-bg)]"
+                    >
+                      <Plus size={28} strokeWidth={2.5} />
+                    </button>
+                  </div>
+                );
+              }
+
+              return btn;
             })}
           </div>
         </nav>
@@ -265,16 +282,7 @@ export default function App() {
           repeatWorkoutData={repeatWorkoutData}
         />
 
-        {/* Floating Action Button */}
-        <button
-          type="button"
-          aria-label="Log new set"
-          onClick={handleOpenInput}
-          className="fixed bottom-24 right-[calc(50%-10rem)] md:right-[calc(50%-12rem)] z-30 grid h-11 w-11 place-items-center rounded-full bg-accent-primary text-app-bg shadow-[0_0_16px_var(--accent-primary)] transition hover:shadow-[0_0_32px_var(--accent-primary)] active:scale-90"
-          style={{ transform: 'translateX(50%)' }}
-        >
-          <Plus size={20} strokeWidth={2.5} />
-        </button>
+        {/* Removed standalone Floating Action Button */}
 
         {/* Rest Timer Overlay */}
         {restOverlayVisible && (
@@ -297,11 +305,12 @@ export default function App() {
           />
         )}
 
-        <ProfileManager 
+        <ProfileManager
           visible={profileVisible}
           onClose={() => setProfileVisible(false)}
           session={session}
           onLogout={handleLogout}
+          onOpenDataVault={() => { setActiveTab('data'); setProfileVisible(false); }}
         />
       </div>
     </div>
