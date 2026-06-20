@@ -2,7 +2,8 @@ import { supabase } from './supabase';
 
 const DB_NAME = 'JexiOfflineDB';
 const STORE_NAME = 'syncQueue';
-const DB_VERSION = 1;
+const CACHE_STORE = 'dataCache';
+const DB_VERSION = 2;
 
 function getDB() {
   return new Promise((resolve, reject) => {
@@ -17,7 +18,36 @@ function getDB() {
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
       }
+      if (!db.objectStoreNames.contains(CACHE_STORE)) {
+        db.createObjectStore(CACHE_STORE, { keyPath: 'key' });
+      }
     };
+  });
+}
+
+// Write data to cache
+export async function cacheData(key, data) {
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(CACHE_STORE, 'readwrite');
+    const store = tx.objectStore(CACHE_STORE);
+    store.put({ key, data, timestamp: Date.now() });
+    
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+// Read data from cache
+export async function getCachedData(key) {
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(CACHE_STORE, 'readonly');
+    const store = tx.objectStore(CACHE_STORE);
+    const request = store.get(key);
+    
+    request.onsuccess = () => resolve(request.result?.data || null);
+    request.onerror = () => reject(request.error);
   });
 }
 

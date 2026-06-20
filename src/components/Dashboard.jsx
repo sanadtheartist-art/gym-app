@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChartNoAxesColumnIncreasing, Flame, Target, TrendingUp, Zap } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-
+import { getCachedData, cacheData } from '../lib/offlineSync';
+import { MUSCLE_GROUP_MAPPING } from '../data/muscles';
 const toDateKey = (value) => {
   const date = new Date(value);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -139,6 +140,23 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
 
     async function loadDashboard() {
       setLoading(true);
+      
+      // Load from cache first
+      try {
+        const cached = await getCachedData('workouts_dashboard');
+        if (cached && isMounted) {
+          setWorkouts(cached);
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error('Cache load error', err);
+      }
+
+      if (!navigator.onLine) {
+        if (isMounted) setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('workouts')
         .select('timestamp, sets, reps, weight_kg, muscle_group, exercise_name')
@@ -146,8 +164,10 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
         .limit(500);
 
       if (isMounted) {
-        setWorkouts(error ? [] : data || []);
+        const finalData = error ? [] : data || [];
+        setWorkouts(finalData);
         setLoading(false);
+        cacheData('workouts_dashboard', finalData).catch(console.error);
       }
     }
 
@@ -200,11 +220,17 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
     const result = {};
 
     MUSCLE_GROUPS.forEach(muscle => {
-      const lastWorkout = workouts.find(w =>
-        w.muscle_group && w.muscle_group.split(',').map(m => m.trim()).some(m =>
-          m.toLowerCase().includes(muscle.toLowerCase()) || muscle.toLowerCase().includes(m.toLowerCase())
-        )
-      );
+      const mappedMuscles = MUSCLE_GROUP_MAPPING[muscle] || [muscle];
+      
+      const lastWorkout = workouts.find(w => {
+        if (!w.muscle_group) return false;
+        const workoutMuscles = w.muscle_group.split(',').map(m => m.trim().toLowerCase());
+        
+        return workoutMuscles.some(wm => 
+          mappedMuscles.some(mapped => wm.includes(mapped.toLowerCase()) || mapped.toLowerCase().includes(wm))
+        );
+      });
+      
       if (!lastWorkout) {
         result[muscle] = null;
       } else {
@@ -243,7 +269,16 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
       .forEach(w => {
         w.muscle_group.split(',').forEach(m => {
           const muscle = m.trim();
-          if (muscle) counts[muscle] = (counts[muscle] || 0) + 1;
+          if (muscle) {
+            let parentGroup = muscle;
+            for (const [group, subs] of Object.entries(MUSCLE_GROUP_MAPPING)) {
+              if (subs.some(sub => sub.toLowerCase() === muscle.toLowerCase())) {
+                parentGroup = group;
+                break;
+              }
+            }
+            counts[parentGroup] = (counts[parentGroup] || 0) + 1;
+          }
         });
       });
     const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);

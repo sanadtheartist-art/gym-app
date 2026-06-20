@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Trash2, RotateCcw, Search, Dumbbell } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-
+import { getCachedData, cacheData } from '../lib/offlineSync';
 export default function HistoryLog({ refreshKey, onChanged, onRepeatWorkout }) {
   const [workouts, setWorkouts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -12,14 +12,32 @@ export default function HistoryLog({ refreshKey, onChanged, onRepeatWorkout }) {
 
     async function loadHistory() {
       setLoading(true);
+      
+      try {
+        const cached = await getCachedData('workouts_history');
+        if (cached && isMounted) {
+          setWorkouts(cached);
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error('Cache load error', err);
+      }
+
+      if (!navigator.onLine) {
+        if (isMounted) setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('workouts')
         .select('id, timestamp, sets, reps, weight_kg, muscle_group, exercise_name, input_unit, sets_data, custom_notes, media_url')
         .order('timestamp', { ascending: false });
 
       if (isMounted) {
-        setWorkouts(error ? [] : data || []);
+        const finalData = error ? [] : data || [];
+        setWorkouts(finalData);
         setLoading(false);
+        cacheData('workouts_history', finalData).catch(console.error);
       }
     }
 

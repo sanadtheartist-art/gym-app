@@ -1,40 +1,59 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, FolderOpen, Play, Plus, Trash2, GripVertical } from 'lucide-react';
+import { ArrowDown, ArrowUp, FolderOpen, Play, Plus, Trash2, Edit2, Check, Download } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { getCachedData, cacheData } from '../lib/offlineSync';
 
 export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, onChanged }) {
   const [splits, setSplits] = useState([]);
-  const [selectedSplitId, setSelectedSplitId] = useState('');
+  const [expandedSplitId, setExpandedSplitId] = useState('');
   const [newSplitName, setNewSplitName] = useState('');
   const [newExerciseName, setNewExerciseName] = useState('');
   const [exerciseSuggestions, setExerciseSuggestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('');
-
-  const selectedSplit = splits.find((split) => split.id === selectedSplitId) || splits[0] || null;
+  
+  // For editing split name
+  const [editingSplitId, setEditingSplitId] = useState('');
+  const [editNameValue, setEditNameValue] = useState('');
 
   useEffect(() => {
     let isMounted = true;
 
     async function loadSplits() {
       setLoading(true);
+      
+      try {
+        const cached = await getCachedData('splits_manager');
+        if (cached && isMounted) {
+          setSplits(cached.splits || []);
+          setExerciseSuggestions(cached.suggestions || []);
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error('Cache load error', err);
+      }
+
+      if (!navigator.onLine) {
+        if (isMounted) setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('splits')
         .select('id, name, created_at, split_exercises(id, exercise_name, display_order)')
         .order('created_at', { ascending: false });
 
-      if (!isMounted) return;
-
+      let normalized = [];
       if (error) {
-        setSplits([]);
         setStatus(error.message);
       } else {
-        const normalized = (data || []).map((split) => ({
+        normalized = (data || []).map((split) => ({
           ...split,
           exercises: [...(split.split_exercises || [])].sort((a, b) => a.display_order - b.display_order),
         }));
-        setSplits(normalized);
-        if (!selectedSplitId && normalized[0]?.id) setSelectedSplitId(normalized[0].id);
+        if (isMounted) {
+          setSplits(normalized);
+        }
       }
 
       const { data: workoutsData } = await supabase
@@ -43,19 +62,23 @@ export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, 
         .not('exercise_name', 'is', null)
         .limit(500);
 
-      if (isMounted && workoutsData) {
-        const distinct = [...new Set(workoutsData.map((row) => row.exercise_name).filter(Boolean))].sort();
-        setExerciseSuggestions(distinct);
+      let distinct = [];
+      if (workoutsData) {
+        distinct = [...new Set(workoutsData.map((row) => row.exercise_name).filter(Boolean))].sort();
+        if (isMounted) setExerciseSuggestions(distinct);
       }
 
-      setLoading(false);
+      if (isMounted) {
+        setLoading(false);
+        cacheData('splits_manager', { splits: normalized, suggestions: distinct }).catch(console.error);
+      }
     }
 
     loadSplits();
     return () => {
       isMounted = false;
     };
-  }, [refreshKey, selectedSplitId]);
+  }, [refreshKey]);
 
   const matchingSuggestions = useMemo(() => {
     const search = newExerciseName.trim().toLowerCase();
@@ -82,21 +105,92 @@ export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, 
     }
 
     setNewSplitName('');
-    setSelectedSplitId(data.id);
+    setExpandedSplitId(data.id);
     setSplits((current) => [{ ...data, exercises: [] }, ...current]);
     setStatus('Routine created');
     onChanged?.();
   };
 
-  const addExercise = async (event) => {
-    event.preventDefault();
-    if (!selectedSplit || !newExerciseName.trim()) return;
+  const updateSplitName = async (splitId) => {
+    const name = editNameValue.trim();
+    if (!name) {
+      setEditingSplitId('');
+      return;
+    }
+    
+    const { error } = await supabase.from('splits').update({ name }).eq('id', splitId);
+    if (error) {
+      setStatus(error.message);
+      return;
+    }
+    
+    setSplits(current => current.map(s => s.id === splitId ? { ...s, name } : s));
+    setEditingSplitId('');
+    onChanged?.();
+  };
 
-    const nextOrder = selectedSplit.exercises.length;
+  const saveTodayAsSplit = async () => {
+    setStatus('Saving today as split...');
+    
+    // Get today's start date
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const { data: workouts } = await supabase
+      .from('workouts')
+      .select('exercise_name, timestamp')
+      .gte('timestamp', today.toISOString())
+      .order('timestamp', { ascending: true });
+      
+    if (!workouts || workouts.length === 0) {
+      setStatus('No workouts found today');
+      return;
+    }
+    
+    // Get unique exercises
+    const uniqueExercises = [...new Set(workouts.map(w => w.exercise_name).filter(Boolean))];
+    
+    if (uniqueExercises.length === 0) {
+      setStatus('No valid exercises found today');
+      return;
+    }
+    
+    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const splitName = `Workout ${dateStr}`;
+    
+    const { data: split, error: splitError } = await supabase
+      .from('splits')
+      .insert({ name: splitName })
+      .select('id')
+      .single();
+      
+    if (splitError) {
+      setStatus(splitError.message);
+      return;
+    }
+    
+    const exercises = uniqueExercises.map((ex, i) => ({
+      split_id: split.id,
+      exercise_name: ex,
+      display_order: i
+    }));
+    
+    await supabase.from('split_exercises').insert(exercises);
+    
+    setStatus('Today saved as a new split!');
+    onChanged?.();
+  };
+
+  const addExercise = async (event, splitId) => {
+    event.preventDefault();
+    const split = splits.find(s => s.id === splitId);
+    if (!split || !newExerciseName.trim()) return;
+
+    const nextOrder = split.exercises.length;
     const { data, error } = await supabase
       .from('split_exercises')
       .insert({
-        split_id: selectedSplit.id,
+        split_id: split.id,
         exercise_name: newExerciseName.trim(),
         display_order: nextOrder,
       })
@@ -109,16 +203,16 @@ export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, 
     }
 
     setNewExerciseName('');
-    setSplits((current) => current.map((split) => (
-      split.id === selectedSplit.id
-        ? { ...split, exercises: [...split.exercises, data] }
-        : split
+    setSplits((current) => current.map((s) => (
+      s.id === split.id
+        ? { ...s, exercises: [...s.exercises, data] }
+        : s
     )));
     setStatus('Exercise added');
     onChanged?.();
   };
 
-  const deleteExercise = async (exerciseId) => {
+  const deleteExercise = async (splitId, exerciseId) => {
     const { error } = await supabase.from('split_exercises').delete().eq('id', exerciseId);
 
     if (error) {
@@ -127,33 +221,32 @@ export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, 
     }
 
     setSplits((current) => current.map((split) => (
-      split.id === selectedSplit?.id
+      split.id === splitId
         ? { ...split, exercises: split.exercises.filter((exercise) => exercise.id !== exerciseId) }
         : split
     )));
     onChanged?.();
   };
 
-  const moveExercise = async (exercise, direction) => {
-    if (!selectedSplit) return;
-    const currentIndex = selectedSplit.exercises.findIndex(e => e.id === exercise.id);
+  const moveExercise = async (splitId, exercise, direction) => {
+    const split = splits.find(s => s.id === splitId);
+    if (!split) return;
+    const currentIndex = split.exercises.findIndex(e => e.id === exercise.id);
     const newIndex = currentIndex + direction;
     
-    if (newIndex < 0 || newIndex >= selectedSplit.exercises.length) return;
+    if (newIndex < 0 || newIndex >= split.exercises.length) return;
     
-    const newExercises = [...selectedSplit.exercises];
+    const newExercises = [...split.exercises];
     const temp = newExercises[currentIndex];
     newExercises[currentIndex] = newExercises[newIndex];
     newExercises[newIndex] = temp;
     
-    // Update local state for immediate feedback
-    setSplits(current => current.map(split => 
-      split.id === selectedSplit.id 
-        ? { ...split, exercises: newExercises } 
-        : split
+    setSplits(current => current.map(s => 
+      s.id === splitId 
+        ? { ...s, exercises: newExercises } 
+        : s
     ));
     
-    // Update Supabase
     const updates = [
       { id: newExercises[currentIndex].id, display_order: currentIndex },
       { id: newExercises[newIndex].id, display_order: newIndex }
@@ -174,8 +267,8 @@ export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, 
       }
 
       setSplits((current) => current.filter((split) => split.id !== splitId));
-      if (selectedSplitId === splitId) {
-        setSelectedSplitId('');
+      if (expandedSplitId === splitId) {
+        setExpandedSplitId('');
       }
       setStatus('Routine deleted');
       onChanged?.();
@@ -221,7 +314,7 @@ export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, 
     }
     
     setStatus(addedCount > 0 ? `Loaded ${addedCount} new templates!` : 'All templates already loaded.');
-    onChanged?.(); // triggers refresh in parent
+    onChanged?.();
   };
 
   return (
@@ -234,14 +327,18 @@ export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, 
         <div className="flex items-center gap-2">
           <button 
             type="button" 
+            onClick={saveTodayAsSplit} 
+            className="h-11 px-3 text-[11px] font-bold bg-card-elevated text-text-muted rounded-xl hover:text-accent-lime transition active:scale-95 flex items-center gap-1.5"
+          >
+            <Download size={14} /> Today
+          </button>
+          <button 
+            type="button" 
             onClick={loadTemplates} 
             className="h-11 px-3 text-[11px] font-bold bg-card-elevated text-text-muted rounded-xl hover:text-text-main transition active:scale-95"
           >
             Load Templates
           </button>
-          <div className="grid h-11 w-11 place-items-center rounded-xl glass-card text-accent-lime">
-            <FolderOpen size={20} />
-          </div>
         </div>
       </div>
 
@@ -261,147 +358,167 @@ export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, 
         </button>
       </form>
 
-      {/* Split Picker */}
-      <div className="mt-6 flex flex-wrap gap-2 pb-2">
-        {splits.map((split) => (
-          <button
-            type="button"
-            key={split.id}
-            onClick={() => setSelectedSplitId(split.id)}
-            className={`whitespace-nowrap rounded-xl px-4 py-3 text-sm font-bold transition-all ${
-              selectedSplit?.id === split.id 
-                ? 'glass-card-orange text-white transform -translate-y-0.5' 
-                : 'glass-card text-text-muted hover:text-text-main'
-            }`}
-          >
-            {split.name}
-          </button>
-        ))}
-      </div>
-
-      <div className="mt-4 rounded-card glass-card p-5">
-        {loading ? (
+      <div className="mt-6 flex flex-col gap-3">
+        {loading && splits.length === 0 ? (
           <div className="text-center text-text-muted py-8 shimmer-bg rounded-xl">Loading routines</div>
-        ) : selectedSplit ? (
-          <>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">
-                  {activeSplit?.id === selectedSplit.id ? 'Active Routine' : 'Selected Routine'}
-                </p>
-                <h2 className="mt-1 flex items-center gap-2 text-2xl font-extrabold text-text-main">
-                  {selectedSplit.name}
-                  {activeSplit?.id === selectedSplit.id && <span className="live-dot ml-1" />}
-                </h2>
-              </div>
-              <div className="ml-auto flex shrink-0 gap-2">
-                <button
-                  type="button"
-                  onClick={() => deleteSplit(selectedSplit.id)}
-                  className="grid h-11 w-11 place-items-center rounded-xl bg-card-elevated text-text-muted transition active:scale-95 hover:text-quiet-red hover:bg-quiet-red/10"
-                  aria-label="Delete split"
+        ) : splits.length > 0 ? (
+          splits.map((split) => {
+            const isExpanded = expandedSplitId === split.id;
+            const isEditing = editingSplitId === split.id;
+            
+            return (
+              <div key={split.id} className="rounded-card glass-card overflow-hidden transition-all duration-300">
+                {/* Accordion Header */}
+                <div 
+                  onClick={() => !isEditing && setExpandedSplitId(isExpanded ? '' : split.id)}
+                  className={`flex flex-wrap items-center justify-between p-4 cursor-pointer hover:bg-white/5 transition-colors ${isExpanded ? 'bg-white/5' : ''}`}
                 >
-                  <Trash2 size={18} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onLaunchSplit?.(selectedSplit)}
-                  className="flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl bg-accent-lime px-4 text-sm font-extrabold text-app-bg transition hover:shadow-glow-lime active:scale-95"
-                >
-                  <Play size={16} className="fill-current" />
-                  Launch
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <form onSubmit={addExercise} className="flex gap-2 relative">
-                <input
-                  value={newExerciseName}
-                  onChange={(event) => setNewExerciseName(event.target.value)}
-                  list="split-exercise-suggestions"
-                  autoComplete="off"
-                  placeholder="Add exercise..."
-                  className="h-12 min-w-0 flex-1 rounded-xl bg-app-bg border border-glass-border px-4 text-sm font-medium text-text-main outline-none focus:border-accent-lime transition"
-                />
-                <datalist id="split-exercise-suggestions">
-                  {exerciseSuggestions.map((name) => (
-                    <option key={name} value={name} />
-                  ))}
-                </datalist>
-                <button
-                  type="submit"
-                  aria-label="Add exercise"
-                  className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-card-elevated text-text-main transition active:scale-95 hover:bg-white/10"
-                >
-                  <Plus size={19} />
-                </button>
-              </form>
-              
-              {matchingSuggestions.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1.5 pb-1">
-                  {matchingSuggestions.map((name) => (
-                    <button
-                      type="button"
-                      key={name}
-                      onClick={() => setNewExerciseName(name)}
-                      className="whitespace-nowrap rounded-lg bg-app-bg border border-glass-border px-3 py-1.5 text-[11px] font-semibold text-text-muted transition active:scale-95 hover:text-text-main"
-                    >
-                      {name}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="mt-6 grid gap-2 stagger-children">
-              {selectedSplit.exercises.length ? selectedSplit.exercises.map((exercise, index) => (
-                <div key={exercise.id} className="group flex min-h-[56px] items-center justify-between rounded-xl bg-app-bg border border-glass-border px-2 sm:px-4 py-2 transition hover:border-white/20">
-                  <div className="flex items-start gap-3 min-w-0 flex-1">
-                    <div className="mt-0.5 grid h-8 w-8 place-items-center rounded-lg bg-card-elevated text-[10px] font-bold text-text-muted font-mono shrink-0">
-                      {String(index + 1).padStart(2, '0')}
-                    </div>
-                    <p className="text-sm font-bold text-text-main flex-1 break-words whitespace-normal leading-snug py-1.5" title={exercise.exercise_name}>
-                      {exercise.exercise_name}
-                    </p>
+                  <div className="min-w-0 flex-1 flex items-center gap-2">
+                    {isEditing ? (
+                      <input 
+                        value={editNameValue}
+                        onChange={(e) => setEditNameValue(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="bg-app-bg border border-accent-lime rounded px-2 py-1 text-base font-extrabold text-text-main outline-none"
+                        autoFocus
+                      />
+                    ) : (
+                      <h2 className="text-lg font-extrabold text-text-main truncate">
+                        {split.name}
+                        {activeSplit?.id === split.id && <span className="live-dot ml-2" />}
+                      </h2>
+                    )}
                   </div>
                   
-                  <div className="flex items-center gap-1 shrink-0 ml-2">
-                    <div className="flex flex-col bg-card-elevated rounded-lg p-0.5 mr-1">
-                      <button
-                        type="button"
-                        disabled={index === 0}
-                        onClick={() => moveExercise(exercise, -1)}
-                        className="grid h-5 w-7 place-items-center rounded-[4px] text-text-muted transition hover:bg-white/10 hover:text-text-main active:scale-95 disabled:opacity-20"
+                  <div className="flex items-center gap-2 ml-4">
+                    {isEditing ? (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); updateSplitName(split.id); }}
+                        className="grid h-8 w-8 place-items-center rounded bg-accent-lime text-app-bg hover:shadow-glow-lime active:scale-95"
                       >
-                        <ArrowUp size={13} />
+                        <Check size={16} />
                       </button>
-                      <button
-                        type="button"
-                        disabled={index === selectedSplit.exercises.length - 1}
-                        onClick={() => moveExercise(exercise, 1)}
-                        className="grid h-5 w-7 place-items-center rounded-[4px] text-text-muted transition hover:bg-white/10 hover:text-text-main active:scale-95 disabled:opacity-20"
+                    ) : (
+                      <button 
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          setEditNameValue(split.name);
+                          setEditingSplitId(split.id);
+                          setExpandedSplitId(split.id); // Ensure it's open
+                        }}
+                        className="grid h-8 w-8 place-items-center rounded bg-card-elevated text-text-muted hover:text-text-main active:scale-95"
                       >
-                        <ArrowDown size={13} />
+                        <Edit2 size={14} />
                       </button>
-                    </div>
+                    )}
+                    
                     <button
                       type="button"
-                      aria-label={`Remove ${exercise.exercise_name}`}
-                      onClick={() => deleteExercise(exercise.id)}
-                      className="grid h-10 w-10 place-items-center rounded-lg text-text-muted transition hover:bg-quiet-red/10 hover:text-quiet-red active:scale-95"
+                      onClick={(e) => { e.stopPropagation(); onLaunchSplit?.(split); }}
+                      className="flex h-8 items-center gap-1.5 rounded bg-accent-lime px-3 text-[11px] font-extrabold text-app-bg transition hover:shadow-glow-lime active:scale-95"
                     >
-                      <Trash2 size={16} />
+                      <Play size={12} className="fill-current" /> Launch
+                    </button>
+                    
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); deleteSplit(split.id); }}
+                      className="grid h-8 w-8 place-items-center rounded bg-card-elevated text-text-muted transition active:scale-95 hover:text-quiet-red hover:bg-quiet-red/10"
+                    >
+                      <Trash2 size={14} />
                     </button>
                   </div>
                 </div>
-              )) : (
-                <div className="rounded-xl bg-app-bg border border-glass-border border-dashed p-6 text-center text-sm font-medium text-text-muted">
-                  Your routine is empty.<br/>Add exercises above to build your split.
-                </div>
-              )}
-            </div>
-          </>
+
+                {/* Accordion Body */}
+                {isExpanded && (
+                  <div className="p-4 pt-0 border-t border-glass-border">
+                    <div className="mt-4">
+                      <form onSubmit={(e) => addExercise(e, split.id)} className="flex gap-2 relative">
+                        <input
+                          value={newExerciseName}
+                          onChange={(event) => setNewExerciseName(event.target.value)}
+                          list="split-exercise-suggestions"
+                          autoComplete="off"
+                          placeholder="Add exercise..."
+                          className="h-12 min-w-0 flex-1 rounded-xl bg-app-bg border border-glass-border px-4 text-sm font-medium text-text-main outline-none focus:border-accent-lime transition"
+                        />
+                        <button
+                          type="submit"
+                          aria-label="Add exercise"
+                          className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-card-elevated text-text-main transition active:scale-95 hover:bg-white/10"
+                        >
+                          <Plus size={19} />
+                        </button>
+                      </form>
+                      
+                      {matchingSuggestions.length > 0 && newExerciseName && (
+                        <div className="mt-2 flex flex-wrap gap-1.5 pb-1">
+                          {matchingSuggestions.map((name) => (
+                            <button
+                              type="button"
+                              key={name}
+                              onClick={() => setNewExerciseName(name)}
+                              className="whitespace-nowrap rounded-lg bg-app-bg border border-glass-border px-3 py-1.5 text-[11px] font-semibold text-text-muted transition active:scale-95 hover:text-text-main"
+                            >
+                              {name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mt-4 grid gap-2">
+                      {split.exercises.length ? split.exercises.map((exercise, index) => (
+                        <div key={exercise.id} className="group flex min-h-[48px] items-center justify-between rounded-xl bg-app-bg border border-glass-border px-2 sm:px-4 py-1.5 transition hover:border-white/20">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className="grid h-7 w-7 place-items-center rounded-lg bg-card-elevated text-[10px] font-bold text-text-muted font-mono shrink-0">
+                              {String(index + 1).padStart(2, '0')}
+                            </div>
+                            <p className="text-sm font-bold text-text-main flex-1 break-words whitespace-normal py-1" title={exercise.exercise_name}>
+                              {exercise.exercise_name}
+                            </p>
+                          </div>
+                          
+                          <div className="flex items-center gap-1 shrink-0 ml-2">
+                            <div className="flex flex-col bg-card-elevated rounded-lg p-0.5 mr-1">
+                              <button
+                                type="button"
+                                disabled={index === 0}
+                                onClick={() => moveExercise(split.id, exercise, -1)}
+                                className="grid h-4 w-6 place-items-center rounded-[4px] text-text-muted transition hover:bg-white/10 hover:text-text-main active:scale-95 disabled:opacity-20"
+                              >
+                                <ArrowUp size={11} />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={index === split.exercises.length - 1}
+                                onClick={() => moveExercise(split.id, exercise, 1)}
+                                className="grid h-4 w-6 place-items-center rounded-[4px] text-text-muted transition hover:bg-white/10 hover:text-text-main active:scale-95 disabled:opacity-20"
+                              >
+                                <ArrowDown size={11} />
+                              </button>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => deleteExercise(split.id, exercise.id)}
+                              className="grid h-8 w-8 place-items-center rounded-lg text-text-muted transition hover:bg-quiet-red/10 hover:text-quiet-red active:scale-95"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      )) : (
+                        <div className="rounded-xl bg-app-bg border border-glass-border border-dashed p-4 text-center text-xs font-medium text-text-muted">
+                          Empty routine. Add exercises above.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })
         ) : (
           <div className="text-center py-8">
             <FolderOpen className="mx-auto h-12 w-12 text-text-muted/30 mb-3" />

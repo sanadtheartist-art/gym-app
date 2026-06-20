@@ -35,5 +35,17 @@ export const COMMON_MUSCLE_PRESETS = [
   "Quads",
   "Hamstrings",
   "Glutes",
-  "Calves"
 ];
+
+export const MUSCLE_GROUP_MAPPING = {
+  "Chest": ["Upper Chest", "Mid/Lower Chest", "Chest"],
+  "Back": ["Lats", "Upper Back", "Lower Back", "Traps", "Back"],
+  "Shoulders": ["Front Delts", "Side Delts", "Rear Delts", "Shoulders"],
+  "Arms": ["Biceps", "Triceps", "Forearms", "Arms"],
+  "Biceps": ["Biceps"],
+  "Triceps": ["Triceps"],
+  "Core": ["Abs", "Obliques", "Core"],
+  "Legs": ["Quads", "Hamstrings", "Glutes", "Calves", "Abductors", "Adductors", "Legs"],
+  "Glutes": ["Glutes"],
+  "Calves": ["Calves"]
+};
