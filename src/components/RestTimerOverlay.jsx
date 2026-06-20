@@ -62,8 +62,8 @@ export default function RestTimerOverlay({ seconds, isActive, sessionTools, onCl
       </div>
 
       {/* Big Circular Timer */}
-      <div className="relative flex items-center justify-center mb-16 animate-scale-in">
-        <svg width="280" height="280" viewBox="0 0 280 280" className="-rotate-90">
+      <div className="relative flex items-center justify-center mb-16 animate-fade-in" style={{ animationDelay: '0.05s' }}>
+        <svg width="280" height="280" viewBox="0 0 280 280">
           {/* Background circle */}
           <circle
             cx="140" cy="140" r={radius}
@@ -78,6 +78,7 @@ export default function RestTimerOverlay({ seconds, isActive, sessionTools, onCl
             strokeLinecap="round"
             strokeDasharray={circumference}
             strokeDashoffset={dashOffset}
+            transform="rotate(-90 140 140)"
             className="transition-all duration-1000 ease-linear"
           />
         </svg>
