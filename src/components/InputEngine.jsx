@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import React from 'react';
-import { ChevronDown, Dumbbell, Save, Upload, X, Plus, Trash2, Calculator, CheckCircle2 } from 'lucide-react';
+import { ChevronDown, Dumbbell, Save, Upload, X, Plus, Trash2, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import PlateCalculator from './PlateCalculator';
 import { COMMON_MUSCLE_PRESETS, EXPLICIT_MUSCLE_LIST } from '../data/muscles';
 import { queueSyncData } from '../lib/offlineSync';
 
@@ -31,7 +30,6 @@ export default function InputEngine({
   const [mediaFile, setMediaFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState('');
-  const [calcOpen, setCalcOpen] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [activeDuration, setActiveDuration] = useState(0);
   
@@ -382,14 +380,6 @@ export default function InputEngine({
             <div className="flex gap-2">
               <button
                 type="button"
-                aria-label="Open plate calculator"
-                onClick={() => setCalcOpen(true)}
-                className="grid h-10 w-10 place-items-center rounded-xl bg-card-elevated text-text-main transition active:scale-95"
-              >
-                <Calculator size={18} />
-              </button>
-              <button
-                type="button"
                 aria-label="Close workout entry"
                 onClick={onClose}
                 className="grid h-10 w-10 place-items-center rounded-xl bg-card-elevated text-text-main transition active:scale-95"
@@ -559,12 +549,17 @@ export default function InputEngine({
                       <span className="text-[9px] font-bold uppercase tracking-widest text-text-muted/70" title="Rate of Perceived Exertion (1-10)">RPE</span>
                       <input
                         min="1"
+                        max="10"
                         step="0.5"
                         type="number"
                         inputMode="decimal"
                         placeholder="-"
                         value={set.rpe}
-                        onChange={(event) => updateSet(index, 'rpe', event.target.value)}
+                        onChange={(event) => {
+                          let val = event.target.value;
+                          if (val !== '' && parseFloat(val) > 10) val = '10';
+                          updateSet(index, 'rpe', val);
+                        }}
                         className="w-full bg-transparent text-center text-xl font-extrabold text-text-main outline-none font-mono"
                       />
                     </label>
@@ -747,7 +742,6 @@ export default function InputEngine({
           </div>
         </div>
       </form>
-      {calcOpen && <PlateCalculator onClose={() => setCalcOpen(false)} />}
     </div>
   );
 }
