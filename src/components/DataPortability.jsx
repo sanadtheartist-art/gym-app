@@ -299,18 +299,13 @@ export default function DataPortability({ onImported }) {
 
 
   return (
-    <section className="mx-auto w-full max-w-3xl px-4 pb-28 pt-4">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">Portability</p>
-          <h1 className="mt-0.5 text-3xl font-extrabold text-text-main">Data Vault</h1>
-        </div>
-        <div className="grid h-11 w-11 place-items-center rounded-xl glass-card text-accent-lime">
-          <Database size={20} />
-        </div>
+    <div className="w-full pt-2">
+      <div className="flex items-center gap-2 mb-3">
+        <Database size={14} className="text-accent-primary" />
+        <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-text-muted">Data Vault</span>
       </div>
 
-      <div className="grid gap-4 stagger-children">
+      <div className="grid gap-3 stagger-children">
         
         {/* PDF Export */}
         <button
@@ -369,6 +364,6 @@ export default function DataPortability({ onImported }) {
           </p>
         </div>
       ) : null}
-    </section>
+    </div>
   );
 }

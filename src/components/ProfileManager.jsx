@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, Upload, User, Palette, LogOut, Check, Pencil, Target, Ruler, Scale, Trash2, AlertTriangle, Database } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import DataPortability from './DataPortability';
 
 const THEMES = [
   { id: 'default',    name: 'Cyberpunk', bg: '#0D0D0D', card: '#1A1A1A', accent: '#C8FF00', text: '#F0F0F0' },
@@ -319,14 +320,7 @@ export default function ProfileManager({ visible, onClose, session, onLogout, on
 
           {/* Sign Out and Data Vault */}
           <div className="border-t border-glass-border pt-5 flex flex-col gap-3">
-            <button
-              onClick={onOpenDataVault}
-              className="w-full flex items-center justify-center gap-3 py-3.5 rounded-2xl font-bold transition active:scale-95 bg-card-elevated border border-glass-border hover:border-accent-primary"
-              style={{ color: 'var(--text-main)' }}
-            >
-              <Database size={18} className="text-accent-primary" />
-              Data Vault
-            </button>
+            <DataPortability onImported={() => window.location.reload()} />
 
             <button
               onClick={() => { onClose(); onLogout(); }}

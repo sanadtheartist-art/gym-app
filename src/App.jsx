@@ -259,9 +259,9 @@ export default function App() {
                       type="button"
                       aria-label="Log new set"
                       onClick={handleOpenInput}
-                      className="relative -top-4 mx-2 z-50 grid h-12 w-12 flex-shrink-0 place-items-center rounded-full bg-accent-primary text-app-bg transition active:scale-90 border-[3px] border-[var(--app-bg)]"
+                      className="mx-2 z-50 grid h-12 w-12 flex-shrink-0 place-items-center rounded-full bg-accent-primary text-app-bg transition active:scale-90"
                     >
-                      <Plus size={20} strokeWidth={3} />
+                      <Plus size={22} strokeWidth={3} />
                     </button>
                   </div>
                 );
