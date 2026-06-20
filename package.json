@@ -8,6 +8,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.50.2",
     "@vitejs/plugin-react": "^4.3.4",
+    "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "lodash": "^4.18.1",
