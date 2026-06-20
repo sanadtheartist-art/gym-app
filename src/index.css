@@ -1,0 +1,586 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ========================================= */
+/* Base Resets                                */
+/* ========================================= */
+
+* {
+  box-sizing: border-box;
+}
+
+/* Greeting shimmer animation */
+@keyframes greetingShimmer {
+  0%   { background-position: 0% center; }
+  50%  { background-position: 100% center; }
+  100% { background-position: 0% center; }
+}
+
+html {
+  background-color: var(--app-bg);
+}
+
+:root {
+  /* Cyberpunk Default Theme */
+  --app-bg: #0D0D0D;
+  --card-bg: #1A1A1A;
+  --card-elevated: #222222;
+  --accent-primary: #C8FF00;
+  --accent-secondary: #FF6B2C;
+  --text-main: #F0F0F0;
+  --text-muted: #6B6B6B;
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --quiet-green: #C8FF00;
+  --quiet-amber: #FF6B2C;
+  --quiet-red: #FF4D4D;
+  --quiet-purple: #A78BFA;
+  --quiet-blue: #60A5FA;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-heading: 'Inter', sans-serif;
+  --icon-stroke: 1.5;
+  --greeting-gradient: linear-gradient(90deg, #C8FF00, #FF6B2C);
+}
+
+:root[data-theme="ocean"] {
+  --app-bg: #060B19;
+  --card-bg: #0B132B;
+  --card-elevated: #152243;
+  --accent-primary: #00F0FF;
+  --accent-secondary: #FF2A6D;
+  --text-main: #E2E8F0;
+  --text-muted: #64748B;
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --font-body: 'Rajdhani', 'Inter', sans-serif;
+  --font-heading: 'Exo 2', sans-serif;
+  --icon-stroke: 1.5;
+  --greeting-gradient: linear-gradient(90deg, #00F0FF, #FF2A6D);
+}
+
+:root[data-theme="monochrome"] {
+  --app-bg: #000000;
+  --card-bg: #111111;
+  --card-elevated: #1A1A1A;
+  --accent-primary: #FFFFFF;
+  --accent-secondary: #A3A3A3;
+  --text-main: #FFFFFF;
+  --text-muted: #737373;
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --quiet-green: #FFFFFF;
+  --quiet-amber: #A3A3A3;
+  --quiet-red: #EF4444;
+  --font-body: 'Space Mono', monospace;
+  --font-heading: 'Space Mono', monospace;
+  --icon-stroke: 1;
+  --greeting-gradient: linear-gradient(90deg, #FFFFFF, #737373);
+}
+
+:root[data-theme="light"] {
+  --app-bg: #F0F4F8;
+  --card-bg: #FFFFFF;
+  --card-elevated: #E8EEF5;
+  --accent-primary: #059669;
+  --accent-secondary: #EA580C;
+  --text-main: #0D1117;
+  --text-muted: #5A6A7E;
+  --glass-border: rgba(0, 0, 0, 0.09);
+  --quiet-green: #059669;
+  --quiet-amber: #D97706;
+  --quiet-red: #DC2626;
+  --font-body: 'IBM Plex Sans', 'Inter', sans-serif;
+  --font-heading: 'IBM Plex Sans', sans-serif;
+  --icon-stroke: 2;
+  --greeting-gradient: linear-gradient(90deg, #059669, #EA580C);
+}
+
+:root[data-theme="retro"] {
+  --app-bg: #12002A;
+  --card-bg: #1E0040;
+  --card-elevated: #2C0060;
+  --accent-primary: #FF2DF7;
+  --accent-secondary: #0FF4F4;
+  --text-main: #F0E6FF;
+  --text-muted: #8B5FCF;
+  --glass-border: rgba(255, 45, 247, 0.25);
+  --quiet-green: #0FF4F4;
+  --quiet-amber: #FFB800;
+  --quiet-red: #FF2D55;
+  --font-body: 'VT323', monospace;
+  --font-heading: 'VT323', monospace;
+  --icon-stroke: 1.5;
+  --greeting-gradient: linear-gradient(90deg, #FF2DF7, #0FF4F4);
+}
+
+:root[data-theme="newspaper"] {
+  --app-bg: #FFFEF7;
+  --card-bg: #FAFAF2;
+  --card-elevated: #EDEADC;
+  --accent-primary: #1C1C1C;
+  --accent-secondary: #8B1A1A;
+  --text-main: #1C1C1C;
+  --text-muted: #7A7A6A;
+  --glass-border: rgba(0, 0, 0, 0.15);
+  --quiet-green: #2D4A1E;
+  --quiet-amber: #8B4513;
+  --quiet-red: #8B1A1A;
+  --font-body: 'Lora', serif;
+  --font-heading: 'Playfair Display', serif;
+  --icon-stroke: 1.5;
+  --greeting-gradient: linear-gradient(90deg, #1C1C1C, #8B1A1A);
+}
+
+:root[data-theme="matrix"] {
+  --app-bg: #000A00;
+  --card-bg: #001500;
+  --card-elevated: #002500;
+  --accent-primary: #00FF41;
+  --accent-secondary: #00B32C;
+  --text-main: #00FF41;
+  --text-muted: #008F11;
+  --glass-border: rgba(0, 255, 65, 0.18);
+  --quiet-green: #00FF41;
+  --quiet-amber: #00CC20;
+  --quiet-red: #FF0000;
+  --font-body: 'Share Tech Mono', monospace;
+  --font-heading: 'Share Tech Mono', monospace;
+  --icon-stroke: 1;
+  --greeting-gradient: linear-gradient(90deg, #00FF41, #00B32C);
+}
+
+:root[data-theme="sunset"] {
+  --app-bg: #0F0616;
+  --card-bg: #1A0A24;
+  --card-elevated: #271535;
+  --accent-primary: #FF6B35;
+  --accent-secondary: #FF3CAC;
+  --text-main: #FFE4D6;
+  --text-muted: #9B6B7A;
+  --glass-border: rgba(255, 107, 53, 0.2);
+  --quiet-green: #FFD700;
+  --quiet-amber: #FF8C00;
+  --quiet-red: #FF3CAC;
+  --font-body: 'Unbounded', sans-serif;
+  --font-heading: 'Unbounded', sans-serif;
+  --icon-stroke: 2;
+  --greeting-gradient: linear-gradient(90deg, #FF6B35, #FF3CAC);
+}
+
+:root[data-theme="arctic"] {
+  --app-bg: #071726;
+  --card-bg: #0D2136;
+  --card-elevated: #152E4A;
+  --accent-primary: #7ECFFF;
+  --accent-secondary: #5BFFD8;
+  --text-main: #E8F4FF;
+  --text-muted: #5B8BAA;
+  --glass-border: rgba(126, 207, 255, 0.15);
+  --quiet-green: #5BFFD8;
+  --quiet-amber: #FFD166;
+  --quiet-red: #FF6B8A;
+  --font-body: 'Exo 2', 'Inter', sans-serif;
+  --font-heading: 'Exo 2', sans-serif;
+  --icon-stroke: 1.5;
+  --greeting-gradient: linear-gradient(90deg, #7ECFFF, #5BFFD8);
+}
+
+:root[data-theme="forest"] {
+  --app-bg: #020E06;
+  --card-bg: #071A0D;
+  --card-elevated: #0E2A17;
+  --accent-primary: #4ADE80;
+  --accent-secondary: #86EFAC;
+  --text-main: #DCFCE7;
+  --text-muted: #4A7C59;
+  --glass-border: rgba(74, 222, 128, 0.15);
+  --quiet-green: #4ADE80;
+  --quiet-amber: #FACC15;
+  --quiet-red: #F87171;
+  --font-body: 'Lora', serif;
+  --font-heading: 'Lora', serif;
+  --icon-stroke: 2;
+  --greeting-gradient: linear-gradient(90deg, #4ADE80, #FACC15);
+}
+
+:root[data-theme="volcanic"] {
+  --app-bg: #0D0200;
+  --card-bg: #1A0600;
+  --card-elevated: #2A0D00;
+  --accent-primary: #FF4500;
+  --accent-secondary: #FF8C00;
+  --text-main: #FFD6B8;
+  --text-muted: #8B4A28;
+  --glass-border: rgba(255, 69, 0, 0.25);
+  --quiet-green: #FF8C00;
+  --quiet-amber: #FF4500;
+  --quiet-red: #FF1A1A;
+  --font-body: 'Bebas Neue', 'Inter', cursive;
+  --font-heading: 'Bebas Neue', cursive;
+  --icon-stroke: 2.5;
+  --greeting-gradient: linear-gradient(90deg, #FF4500, #FF8C00);
+}
+
+:root[data-theme="rose"] {
+  --app-bg: #0F0008;
+  --card-bg: #1A0013;
+  --card-elevated: #280020;
+  --accent-primary: #FF6EB4;
+  --accent-secondary: #C084FC;
+  --text-main: #FFE4F0;
+  --text-muted: #8B4A6B;
+  --glass-border: rgba(255, 110, 180, 0.2);
+  --quiet-green: #C084FC;
+  --quiet-amber: #FB923C;
+  --quiet-red: #FF3366;
+  --font-body: 'DM Serif Display', serif;
+  --font-heading: 'DM Serif Display', serif;
+  --icon-stroke: 1.5;
+  --greeting-gradient: linear-gradient(90deg, #FF6EB4, #C084FC);
+}
+
+:root[data-theme="slate"] {
+  --app-bg: #0A0C10;
+  --card-bg: #131720;
+  --card-elevated: #1E2535;
+  --accent-primary: #94A3B8;
+  --accent-secondary: #64748B;
+  --text-main: #E2E8F0;
+  --text-muted: #475569;
+  --glass-border: rgba(148, 163, 184, 0.12);
+  --quiet-green: #94A3B8;
+  --quiet-amber: #CBD5E1;
+  --quiet-red: #F87171;
+  --font-body: 'IBM Plex Sans', 'Inter', sans-serif;
+  --font-heading: 'IBM Plex Sans', sans-serif;
+  --icon-stroke: 1;
+  --greeting-gradient: linear-gradient(90deg, #94A3B8, #E2E8F0);
+}
+
+
+body {
+  background-color: var(--app-bg);
+  color: var(--text-main);
+  font-family: var(--font-body, 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.4s ease, color 0.4s ease, font-family 0.2s ease;
+}
+
+/* Theme-driven heading font */
+h1, h2, h3 {
+  font-family: var(--font-heading, 'Inter', sans-serif);
+}
+
+/* Icon pack styling — controlled via --icon-stroke per theme */
+svg[class*="lucide"] {
+  stroke-width: var(--icon-stroke, 1.5);
+  transition: stroke-width 0.3s ease;
+}
+
+/* Retro / Matrix — scan-line icon shimmer effect */
+:root[data-theme="retro"] svg[class*="lucide"],
+:root[data-theme="matrix"] svg[class*="lucide"] {
+  filter: drop-shadow(0 0 3px currentColor);
+}
+
+/* Volcanic — thick bold icons */
+:root[data-theme="volcanic"] svg[class*="lucide"] {
+  filter: drop-shadow(0 0 2px rgba(255,69,0,0.5));
+}
+
+/* Rose + Sunset — soft glow */
+:root[data-theme="rose"] svg[class*="lucide"],
+:root[data-theme="sunset"] svg[class*="lucide"] {
+  filter: drop-shadow(0 0 4px currentColor) opacity(0.9);
+}
+
+/* Arctic — crisp clean icons */
+:root[data-theme="arctic"] svg[class*="lucide"] {
+  filter: drop-shadow(0 0 2px rgba(126,207,255,0.4));
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+/* Remove spin buttons from number inputs */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ========================================= */
+/* Custom Scrollbar                          */
+/* ========================================= */
+
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* ========================================= */
+/* Safe Area                                 */
+/* ========================================= */
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Prevent background scroll when the entry sheet is open */
+body.sheet-open {
+  overflow: hidden;
+  touch-action: none;
+}
+
+/* ========================================= */
+/* Glass Card Utilities                      */
+/* ========================================= */
+
+.glass-card {
+  background: var(--card-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.25s ease,
+              border-color 0.25s ease;
+}
+
+.glass-card:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25),
+              inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+}
+
+.glass-card-orange {
+  background: var(--accent-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2),
+              inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
+}
+
+.glass-card-lime {
+  background: var(--accent-primary);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #0D0D0D;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15),
+              inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
+}
+
+.glass-card-dark {
+  background: var(--card-elevated);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.02);
+}
+
+/* ========================================= */
+/* Staggered Card Entrance Animations        */
+/* ========================================= */
+
+main > * {
+  animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+main > *:nth-child(1) { animation-delay: 0.05s; }
+main > *:nth-child(2) { animation-delay: 0.1s; }
+main > *:nth-child(3) { animation-delay: 0.15s; }
+main > *:nth-child(4) { animation-delay: 0.2s; }
+main > *:nth-child(5) { animation-delay: 0.25s; }
+
+@keyframes fadeUp {
+  0% { opacity: 0; transform: translateY(20px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* Stagger utility for child cards */
+.stagger-children > * {
+  animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+.stagger-children > *:nth-child(1) { animation-delay: 0.05s; }
+.stagger-children > *:nth-child(2) { animation-delay: 0.1s; }
+.stagger-children > *:nth-child(3) { animation-delay: 0.15s; }
+.stagger-children > *:nth-child(4) { animation-delay: 0.2s; }
+.stagger-children > *:nth-child(5) { animation-delay: 0.25s; }
+.stagger-children > *:nth-child(6) { animation-delay: 0.3s; }
+.stagger-children > *:nth-child(7) { animation-delay: 0.35s; }
+.stagger-children > *:nth-child(8) { animation-delay: 0.4s; }
+.stagger-children > *:nth-child(9) { animation-delay: 0.45s; }
+.stagger-children > *:nth-child(10) { animation-delay: 0.5s; }
+
+/* ========================================= */
+/* Interactive Button Transitions            */
+/* ========================================= */
+
+button {
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.15s ease,
+              background-color 0.2s ease,
+              color 0.2s ease,
+              box-shadow 0.2s ease;
+}
+
+button:active {
+  transform: scale(0.95);
+  opacity: 0.85;
+}
+
+/* Make cards slightly interactive if they are buttons */
+button.glass-card:active {
+  transform: scale(0.98);
+}
+
+/* ========================================= */
+/* Accent Glow Effects                       */
+/* ========================================= */
+
+.glow-lime {
+  box-shadow: 0 0 16px rgba(200, 255, 0, 0.2),
+              0 0 48px rgba(200, 255, 0, 0.08);
+}
+
+.glow-orange {
+  box-shadow: 0 0 16px rgba(255, 107, 44, 0.2),
+              0 0 48px rgba(255, 107, 44, 0.08);
+}
+
+.glow-red {
+  box-shadow: 0 0 16px rgba(255, 77, 77, 0.2),
+              0 0 48px rgba(255, 77, 77, 0.08);
+}
+
+/* ========================================= */
+/* Shimmer / Loading Effect                  */
+/* ========================================= */
+
+.shimmer-bg {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.05) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ========================================= */
+/* Number Counter Animation                  */
+/* ========================================= */
+
+.number-animate {
+  animation: countUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+@keyframes countUp {
+  0% { opacity: 0; transform: translateY(10px) scale(0.95); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ========================================= */
+/* Live Dot Indicator                        */
+/* ========================================= */
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  animation: liveDot 1.5s ease-in-out infinite;
+}
+
+@keyframes liveDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.7); }
+}
+
+/* ========================================= */
+/* Circular Progress Ring                    */
+/* ========================================= */
+
+.progress-ring-circle {
+  transition: stroke-dashoffset 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+}
+
+/* ========================================= */
+/* Sheet / Modal Overlay                     */
+/* ========================================= */
+
+.sheet-overlay {
+  animation: fadeIn 0.25s ease backwards;
+}
+
+.sheet-content {
+  animation: slideUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+@keyframes fadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes slideUp {
+  0% { opacity: 0; transform: translateY(100%); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* ========================================= */
+/* Input Focus Rings                         */
+/* ========================================= */
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(200, 255, 0, 0.2);
+}
+
+/* ========================================= */
+/* Range Slider                              */
+/* ========================================= */
+
+input[type="range"] {
+  accent-color: var(--accent-primary);
+}
+
+/* ========================================= */
+/* Mono font utility                         */
+/* ========================================= */
+
+.font-mono {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+}
