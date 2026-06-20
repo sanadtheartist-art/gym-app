@@ -88,12 +88,15 @@ export default function WorkoutSummary({ data, onClose }) {
       <div className={`w-full max-w-sm rounded-[32px] glass-card overflow-hidden shadow-2xl transition-all duration-700 ${animating ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'}`}>
         
         {/* Header Graphic */}
-        <div className={`relative h-32 flex items-center justify-center overflow-hidden ${prBroken ? 'bg-accent-orange' : 'bg-accent-lime'}`}>
-          <div className="absolute inset-0 bg-black/20" />
+        <div 
+          className={`relative h-40 flex items-center justify-center overflow-hidden bg-cover bg-center ${prBroken ? 'bg-accent-orange' : 'bg-accent-lime'}`}
+          style={data.media_url && !data.media_url.match(/\.(mp4|webm|ogg)$/i) ? { backgroundImage: `url(${data.media_url})` } : {}}
+        >
+          <div className="absolute inset-0 bg-black/40" />
           <div className="absolute -left-10 -top-10 h-32 w-32 rounded-full bg-white/20 blur-2xl" />
-          <div className="absolute -right-10 -bottom-10 h-32 w-32 rounded-full bg-black/40 blur-2xl" />
+          <div className="absolute -right-10 -bottom-10 h-32 w-32 rounded-full bg-black/60 blur-2xl" />
           
-          <div className="relative z-10 flex flex-col items-center text-app-bg">
+          <div className="relative z-10 flex flex-col items-center text-app-bg drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)]">
             {prBroken ? (
               <Trophy size={48} className="drop-shadow-lg mb-2" />
             ) : (

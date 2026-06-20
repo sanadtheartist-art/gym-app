@@ -14,7 +14,7 @@ export default function HistoryLog({ refreshKey, onChanged, onRepeatWorkout }) {
       setLoading(true);
       const { data, error } = await supabase
         .from('workouts')
-        .select('id, timestamp, sets, reps, weight_kg, muscle_group, exercise_name, input_unit, sets_data, custom_notes')
+        .select('id, timestamp, sets, reps, weight_kg, muscle_group, exercise_name, input_unit, sets_data, custom_notes, media_url')
         .order('timestamp', { ascending: false });
 
       if (isMounted) {
@@ -118,6 +118,16 @@ export default function HistoryLog({ refreshKey, onChanged, onRepeatWorkout }) {
                   </button>
                 </div>
               </div>
+
+              {workout.media_url && (
+                <div className="mt-2 w-full overflow-hidden rounded-xl bg-black">
+                  {workout.media_url.match(/\.(mp4|webm|ogg)$/i) ? (
+                    <video src={workout.media_url} controls className="w-full max-h-48 object-contain" />
+                  ) : (
+                    <img src={workout.media_url} alt="Workout Media" className="w-full max-h-48 object-contain" />
+                  )}
+                </div>
+              )}
 
               {workout.sets_data && workout.sets_data.length > 0 ? (
                 <div className="mt-1 grid gap-1.5">

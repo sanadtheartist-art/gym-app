@@ -164,16 +164,65 @@ export default function InputEngine({
     });
   };
 
+  const compressImage = async (file, targetSizeKB) => {
+    return new Promise((resolve) => {
+      if (!file.type.startsWith('image/')) return resolve(file);
+      
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let { width, height } = img;
+          const maxDim = 800; // max dimension to help reach 25KB
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height *= maxDim / width));
+              width = maxDim;
+            } else {
+              width = Math.round((width *= maxDim / height));
+              height = maxDim;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          let quality = 0.8;
+          const attemptCompress = () => {
+            canvas.toBlob((blob) => {
+              if (blob.size / 1024 <= targetSizeKB || quality <= 0.1) {
+                // Ensure it gets saved as jpeg to support the compression
+                resolve(new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", { type: 'image/jpeg' }));
+              } else {
+                quality -= 0.15;
+                attemptCompress();
+              }
+            }, 'image/jpeg', quality);
+          };
+          attemptCompress();
+        };
+      };
+    });
+  };
+
   const uploadMedia = async () => {
     if (!mediaFile) return '';
+    
+    setStatus('Compressing media...');
+    const processedFile = await compressImage(mediaFile, 25);
+    setStatus('Uploading media...');
 
-    const fileExt = mediaFile.name.split('.').pop();
+    const fileExt = processedFile.name.split('.').pop();
     const fileName = `${Math.random()}.${fileExt}`;
     const filePath = `entries/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
       .from('workout-media')
-      .upload(filePath, mediaFile);
+      .upload(filePath, processedFile);
 
     if (uploadError) {
       throw uploadError;
