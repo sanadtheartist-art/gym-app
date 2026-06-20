@@ -66,11 +66,13 @@ export default function App() {
       setAuthInitialized(true);
       if (session) {
         setShowWelcome(true);
-        // After welcome screen, check if we need to show privacy/onboarding
+        // After welcome screen, check if user has seen privacy OR onboarding (treat as returning if so)
         setTimeout(() => {
           setShowWelcome(false);
           const hasSeenPrivacy = localStorage.getItem('jexi_has_seen_privacy');
-          if (!hasSeenPrivacy) {
+          const hasSeenOnboarding = localStorage.getItem('jexi_has_seen_onboarding');
+          // Only show privacy if NEITHER are set (brand new user)
+          if (!hasSeenPrivacy && !hasSeenOnboarding) {
             setShowPrivacyPolicy(true);
           }
         }, 1500);
@@ -86,7 +88,8 @@ export default function App() {
         setTimeout(() => {
           setShowWelcome(false);
           const hasSeenPrivacy = localStorage.getItem('jexi_has_seen_privacy');
-          if (!hasSeenPrivacy) {
+          const hasSeenOnboarding = localStorage.getItem('jexi_has_seen_onboarding');
+          if (!hasSeenPrivacy && !hasSeenOnboarding) {
             setShowPrivacyPolicy(true);
           }
         }, 1500);
