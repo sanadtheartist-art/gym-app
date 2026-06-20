@@ -66,10 +66,13 @@ export default function App() {
       setAuthInitialized(true);
       if (session) {
         setShowWelcome(true);
-        // After welcome screen, show privacy policy
+        // After welcome screen, check if we need to show privacy/onboarding
         setTimeout(() => {
           setShowWelcome(false);
-          setShowPrivacyPolicy(true);
+          const hasSeenPrivacy = localStorage.getItem('jexi_has_seen_privacy');
+          if (!hasSeenPrivacy) {
+            setShowPrivacyPolicy(true);
+          }
         }, 1500);
       }
     });
@@ -82,7 +85,10 @@ export default function App() {
         setShowWelcome(true);
         setTimeout(() => {
           setShowWelcome(false);
-          setShowPrivacyPolicy(true);
+          const hasSeenPrivacy = localStorage.getItem('jexi_has_seen_privacy');
+          if (!hasSeenPrivacy) {
+            setShowPrivacyPolicy(true);
+          }
         }, 1500);
       }
     });
@@ -166,6 +172,7 @@ export default function App() {
 
   const handlePrivacyPolicyClose = () => {
     setShowPrivacyPolicy(false);
+    localStorage.setItem('jexi_has_seen_privacy', 'true');
     // Check if user has seen onboarding before
     const hasSeenOnboarding = localStorage.getItem('jexi_has_seen_onboarding');
     if (!hasSeenOnboarding) {

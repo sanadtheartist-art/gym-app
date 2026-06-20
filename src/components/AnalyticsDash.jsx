@@ -176,14 +176,12 @@ export default function AnalyticsDash({ refreshKey }) {
   const prChartData = useMemo(() => {
     if (!selectedPrExercise) return [];
     
-    const dataMap = new Map();
+    const dataPoints = [];
     const normalizedSelected = selectedPrExercise.trim().toLowerCase();
     
     workouts.forEach(w => {
       const normalizedExercise = (w.exercise_name || '').trim().toLowerCase();
       if (normalizedExercise !== normalizedSelected) return;
-      
-      const key = keyForDate(w.timestamp);
       
       let max1RM = 0;
       if (w.sets_data && w.sets_data.length > 0) {
@@ -201,14 +199,19 @@ export default function AnalyticsDash({ refreshKey }) {
       }
       
       if (max1RM > 0) {
-        const current = dataMap.get(key) || 0;
-        if (max1RM > current) dataMap.set(key, max1RM);
+        const dateObj = new Date(w.timestamp);
+        const dateLabel = `${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+        dataPoints.push({
+          date: dateLabel,
+          e1rm: Math.round(max1RM),
+          timestamp: dateObj.getTime()
+        });
       }
     });
     
-    return Array.from(dataMap.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, max1RM]) => ({ date: date.slice(5), e1rm: Math.round(max1RM) }));
+    // Sort by timestamp
+    dataPoints.sort((a, b) => a.timestamp - b.timestamp);
+    return dataPoints;
   }, [selectedPrExercise, workouts]);
 
   const totalVolume = chartData.reduce((sum, day) => sum + day.tonnage, 0);
