@@ -3,11 +3,19 @@ import { X, Upload, User, Palette, LogOut, Check, Pencil, Target, Ruler, Scale, 
 import { supabase } from '../lib/supabase';
 
 const THEMES = [
-  { id: 'glass', name: 'Glass', bg: '#07111F', card: '#0E1830', accent: '#7C9CFF', text: '#EAF0FF' },
-  { id: 'aurora', name: 'Aurora', bg: '#0D0F18', card: '#151A2E', accent: '#6EF6C8', text: '#E9FFF7' },
-  { id: 'ember', name: 'Ember', bg: '#140B08', card: '#24130D', accent: '#FF7A59', text: '#FFF3E8' },
-  { id: 'midnight', name: 'Midnight', bg: '#02050B', card: '#0C1222', accent: '#B78BFF', text: '#F4EEFF' },
-  { id: 'sunrise', name: 'Sunrise', bg: '#19110D', card: '#2A1D14', accent: '#FFD166', text: '#FFF8E1' },
+  { id: 'default',    name: 'Cyberpunk',  bg: '#0D0D0D', card: '#1A1A1A', accent: '#C8FF00', text: '#F0F0F0' },
+  { id: 'ocean',      name: 'Ocean',      bg: '#060B19', card: '#0B132B', accent: '#00F0FF', text: '#E2E8F0' },
+  { id: 'monochrome', name: 'Mono',       bg: '#000000', card: '#111111', accent: '#FFFFFF', text: '#FFFFFF' },
+  { id: 'light',      name: 'Light',      bg: '#F0F4F8', card: '#FFFFFF', accent: '#059669', text: '#0D1117' },
+  { id: 'retro',      name: 'Retro',      bg: '#12002A', card: '#1E0040', accent: '#FF2DF7', text: '#F0E6FF' },
+  { id: 'newspaper',  name: 'Newspaper',  bg: '#FFFEF7', card: '#FAFAF2', accent: '#1C1C1C', text: '#1C1C1C' },
+  { id: 'matrix',     name: 'Matrix',     bg: '#000A00', card: '#001500', accent: '#00FF41', text: '#00FF41' },
+  { id: 'sunset',     name: 'Sunset',     bg: '#0F0616', card: '#1A0A24', accent: '#FF6B35', text: '#FFE4D6' },
+  { id: 'arctic',     name: 'Arctic',     bg: '#071726', card: '#0D2136', accent: '#7ECFFF', text: '#E8F4FF' },
+  { id: 'forest',     name: 'Forest',     bg: '#020E06', card: '#071A0D', accent: '#4ADE80', text: '#DCFCE7' },
+  { id: 'volcanic',   name: 'Volcanic',   bg: '#0D0200', card: '#1A0600', accent: '#FF4500', text: '#FFD6B8' },
+  { id: 'rose',       name: 'Rose',       bg: '#0F0008', card: '#1A0013', accent: '#FF6EB4', text: '#FFE4F0' },
+  { id: 'slate',      name: 'Slate',      bg: '#0A0C10', card: '#131720', accent: '#94A3B8', text: '#E2E8F0' },
 ];
 
 const FITNESS_GOALS = ['Build Muscle', 'Lose Fat', 'Increase Strength', 'Improve Endurance', 'Athletic Performance', 'General Fitness'];
@@ -23,7 +31,7 @@ export default function ProfileManager({ visible, onClose, session, onLogout }) 
   const [avatarUrl, setAvatarUrl] = useState(null);
   const [avatarSvgContent, setAvatarSvgContent] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const [currentTheme, setCurrentTheme] = useState('glass');
+  const [currentTheme, setCurrentTheme] = useState('default');
   const [profile, setProfile] = useState({ age: '', weight: '', weightUnit: 'kg', height: '', heightUnit: 'cm', goal: '' });
   const [editingField, setEditingField] = useState(null);
   const [deleteStep, setDeleteStep] = useState(0); // 0=idle 1=warn 2=confirm
@@ -33,7 +41,7 @@ export default function ProfileManager({ visible, onClose, session, onLogout }) 
 
   useEffect(() => {
     if (!visible) return;
-    const savedTheme = localStorage.getItem('jexi_theme') || 'glass';
+    const savedTheme = localStorage.getItem('jexi_theme') || 'default';
     setCurrentTheme(savedTheme);
     document.documentElement.setAttribute('data-theme', savedTheme);
 
@@ -270,7 +278,7 @@ export default function ProfileManager({ visible, onClose, session, onLogout }) 
               <Palette size={14} className="text-accent-primary" />
               <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-text-muted">App Theme</span>
             </div>
-            <div className="grid grid-cols-5 gap-2.5">
+            <div className="grid grid-cols-4 gap-2.5">
               {THEMES.map((theme) => {
                 const active = currentTheme === theme.id;
                 return (

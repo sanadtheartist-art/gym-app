@@ -134,11 +134,11 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
   });
   const [editingGoal, setEditingGoal] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
-  const themes = ['glass', 'aurora', 'ember', 'midnight', 'sunrise'];
+  const themes = ['cyberpunk', 'ocean', 'monochrome'];
 
   const handleThemeChange = (theme) => {
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('jexi_theme', theme);
+    localStorage.setItem('theme', theme);
     setShowThemePicker(false);
   };
 

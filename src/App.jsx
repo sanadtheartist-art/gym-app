@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Activity, ClipboardList, Database, FolderOpen, Grid2X2, Plus, User } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import AuthScreen from './components/AuthScreen';
@@ -35,13 +35,9 @@ export default function App() {
   const [profileVisible, setProfileVisible] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState(null);
   const [avatarSvg, setAvatarSvg] = useState(null);
-  const [headerHidden, setHeaderHidden] = useState(false);
-  const [navHidden, setNavHidden] = useState(false);
-  const scrollContainerRef = useRef(null);
-  const lastScrollY = useRef(0);
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('jexi_theme') || 'glass';
+    const savedTheme = localStorage.getItem('jexi_theme') || 'default';
     document.documentElement.setAttribute('data-theme', savedTheme);
     setAvatarUrl(localStorage.getItem('jexi_avatar'));
     setAvatarSvg(localStorage.getItem('jexi_avatar_svg'));
@@ -69,7 +65,7 @@ export default function App() {
       setSession(session);
     });
 
-    const savedTheme = localStorage.getItem('jexi_theme') || 'glass';
+    const savedTheme = localStorage.getItem('theme') || 'cyberpunk';
     document.documentElement.setAttribute('data-theme', savedTheme);
 
     return () => subscription.unsubscribe();
@@ -136,47 +132,16 @@ export default function App() {
   return (
     <div className="bg-[#000000] h-[100dvh] flex justify-center overflow-hidden">
       {/* Centered mobile-like container */}
-      <div className="w-full max-w-md bg-app-bg text-text-main font-sans relative h-[100dvh] shadow-2xl flex flex-col overflow-hidden">
+      <div className="w-full max-w-md bg-app-bg text-text-main font-sans relative h-[100dvh] border-x border-glass-border/30 shadow-2xl flex flex-col">
         
         {/* Scrolling Content Area */}
-        <div
-          ref={scrollContainerRef}
-          className="flex-1 overflow-y-auto overflow-x-hidden relative"
-          onScroll={() => {
-            const el = scrollContainerRef.current;
-            if (!el) return;
-            const current = el.scrollTop;
-            const delta = current - lastScrollY.current;
-
-            if (Math.abs(delta) > 6) {
-              if (delta > 0 && current > 48) {
-                setHeaderHidden(true);
-                setNavHidden(true);
-              } else if (delta < 0) {
-                setHeaderHidden(false);
-                setNavHidden(false);
-              }
-              lastScrollY.current = current;
-            }
-
-            if (current < 8) {
-              setHeaderHidden(false);
-              setNavHidden(false);
-            }
-          }}
-        >
+        <div className="flex-1 overflow-y-auto overflow-x-hidden relative">
           
-          {/* Top User Bar (scroll-aware) */}
-          <div
-            className={`sticky top-0 z-30 box-border w-full flex items-center justify-between px-4 py-3 backdrop-blur-2xl transition-all duration-300 ${headerHidden ? '-translate-y-full opacity-0' : 'translate-y-0 opacity-100'}`}
-            style={{
-              background: headerHidden ? 'transparent' : 'linear-gradient(to bottom, rgba(7,10,18,0.92), rgba(7,10,18,0.72))',
-              borderBottom: headerHidden ? '0' : '1px solid rgba(255,255,255,0.04)',
-            }}
-          >
+          {/* Top User Bar (Scrolls with content) */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-glass-border">
             <div className="flex items-center gap-3">
-               <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm overflow-hidden border border-white/10 flex-shrink-0"
-                 style={{ background: 'var(--card-elevated)', color: 'var(--accent-primary)' }}
+               <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm overflow-hidden border-2 flex-shrink-0"
+                 style={{ background: 'var(--card-elevated)', borderColor: 'var(--accent-primary)', color: 'var(--accent-primary)' }}
                >
                  {avatarSvg ? (
                    <div className="w-full h-full p-0.5 [&>svg]:w-full [&>svg]:h-full" dangerouslySetInnerHTML={{ __html: avatarSvg }} />
@@ -267,9 +232,7 @@ export default function App() {
         </button>
 
         {/* Bottom Nav (Fixed to bottom of screen) */}
-        <nav
-          className={`sticky bottom-0 z-40 box-border w-full shrink-0 safe-bottom px-4 pb-3 pt-2 backdrop-blur-2xl transition-all duration-300 ${navHidden ? 'translate-y-full opacity-0 pointer-events-none bg-transparent backdrop-blur-none' : 'translate-y-0 opacity-100 pointer-events-auto bg-app-bg/80'}`}
-        >
+        <nav className="shrink-0 safe-bottom bg-app-bg/90 px-4 pb-3 pt-2 backdrop-blur-xl border-t border-glass-border z-40">
           <div className="mx-auto flex max-w-full items-center justify-around rounded-2xl glass-card px-2 py-1.5">
             {tabs.map((tab) => {
               const Icon = tab.icon;
