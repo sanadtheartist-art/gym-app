@@ -174,41 +174,51 @@ export default function AnalyticsDash({ refreshKey }) {
   }, [filteredWorkouts]);
 
   const prChartData = useMemo(() => {
+    console.log('=== prChartData Calculation ===');
+    console.log('selectedPrExercise:', selectedPrExercise);
+    console.log('workouts:', workouts);
     if (!selectedPrExercise) return [];
     
-    const dataMap = new Map();
+    const entries = [];
     const normalizedSelected = selectedPrExercise.trim().toLowerCase();
+    console.log('normalizedSelected:', normalizedSelected);
     
     workouts.forEach(w => {
       const normalizedExercise = (w.exercise_name || '').trim().toLowerCase();
+      console.log('Checking workout exercise:', normalizedExercise, 'vs', normalizedSelected);
       if (normalizedExercise !== normalizedSelected) return;
-      
-      const key = keyForDate(w.timestamp);
       
       let max1RM = 0;
       if (w.sets_data && w.sets_data.length > 0) {
+        console.log('Using sets_data:', w.sets_data);
         w.sets_data.forEach(set => {
           if (set.type === 'W') return;
           const wt = Number(set.weight_kg || set.weight) || 0;
           const r = Number(set.reps) || 0;
           const e1rm = wt * (1 + r / 30);
+          console.log('Set:', set, 'e1rm:', e1rm);
           if (e1rm > max1RM) max1RM = e1rm;
         });
       } else {
+        console.log('Using legacy data');
         const wt = Number(w.weight_kg) || 0;
         const r = Number(w.reps) || 0;
         max1RM = wt * (1 + r / 30);
       }
+      console.log('max1RM for workout:', max1RM);
       
       if (max1RM > 0) {
-        const current = dataMap.get(key) || 0;
-        if (max1RM > current) dataMap.set(key, max1RM);
+        const date = new Date(w.timestamp);
+        const dateStr = `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+        entries.push({
+          date: dateStr,
+          e1rm: Math.round(max1RM)
+        });
       }
     });
     
-    return Array.from(dataMap.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, max1RM]) => ({ date: date.slice(5), e1rm: Math.round(max1RM) }));
+    console.log('prChartData result:', entries);
+    return entries;
   }, [selectedPrExercise, workouts]);
 
   const totalVolume = chartData.reduce((sum, day) => sum + day.tonnage, 0);
@@ -471,7 +481,14 @@ export default function AnalyticsDash({ refreshKey }) {
             </div>
             
             <div className="h-64 w-full">
-              {prChartData.length > 1 ? (
+              {/* Debug info */}
+              <div className="absolute top-0 left-0 right-0 p-2 text-xs text-text-muted overflow-auto max-h-20 bg-app-bg/80">
+                <p>prChartData: {JSON.stringify(prChartData)}</p>
+                <p>Selected Exercise: {selectedPrExercise}</p>
+                <p>Matching Workouts: {workouts.filter(w => (w.exercise_name || '').trim().toLowerCase() === selectedPrExercise?.trim().toLowerCase()).length}</p>
+              </div>
+              
+              {prChartData.length >= 1 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={prChartData} margin={{ top: 10, right: 0, bottom: 0, left: -25 }}>
                     <CartesianGrid stroke="rgba(255,255,255,0.04)" vertical={false} />
