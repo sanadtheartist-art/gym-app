@@ -33,9 +33,22 @@ export default function InputEngine({
   const [status, setStatus] = useState('');
   const [calcOpen, setCalcOpen] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [activeDuration, setActiveDuration] = useState(0);
   
   // Track the last launch so we know when to reset the form
   const lastLaunchKeyRef = React.useRef(null);
+
+  useEffect(() => {
+    let interval;
+    if (visible && !saving && !showSuccess) {
+      interval = setInterval(() => {
+        setActiveDuration((prev) => prev + 1);
+      }, 1000);
+    } else if (!visible) {
+      setActiveDuration(0);
+    }
+    return () => clearInterval(interval);
+  }, [visible, saving, showSuccess]);
 
   useEffect(() => {
     if (!visible) return undefined;
@@ -270,7 +283,7 @@ export default function InputEngine({
         weight_kg: legacyWeightKg,
         sets_data: parsedSets,
         session_duration_seconds: sessionTools?.getSessionDuration?.() || 0,
-        set_duration_seconds: sessionTools?.getSetDuration?.() || 0,
+        set_duration_seconds: activeDuration,
         mechanic_type: form.mechanicType,
         machine_used: form.machineUsed.trim(),
         assisted_muscles: assistedPayload,
@@ -354,7 +367,16 @@ export default function InputEngine({
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">Workout Log</p>
+              <div className="flex items-center gap-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">Workout Log</p>
+                <div className="flex items-center gap-1 rounded-md bg-card-elevated px-1.5 py-0.5">
+                  <div className="h-1.5 w-1.5 rounded-full bg-accent-lime animate-pulse" />
+                  <span className="font-mono text-[10px] font-bold text-text-main">
+                    {Math.floor(activeDuration / 60).toString().padStart(2, '0')}:
+                    {(activeDuration % 60).toString().padStart(2, '0')}
+                  </span>
+                </div>
+              </div>
               <h2 className="mt-0.5 text-2xl font-extrabold text-text-main">New Entry</h2>
             </div>
             <div className="flex gap-2">
