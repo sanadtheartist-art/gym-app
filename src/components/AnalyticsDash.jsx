@@ -65,6 +65,7 @@ export default function AnalyticsDash({ refreshKey }) {
   const { allMuscles, prs } = useMemo(() => {
     const muscleSet = new Set();
     const prMap = new Map();
+    const exerciseNameMap = new Map(); // Map normalized name -> original name
 
     workouts.forEach((workout) => {
       if (workout.muscle_group) {
@@ -72,6 +73,13 @@ export default function AnalyticsDash({ refreshKey }) {
       }
 
       if (workout.exercise_name) {
+        const normalized = workout.exercise_name.trim().toLowerCase();
+        
+        // Keep track of the first original name we see for each normalized name
+        if (!exerciseNameMap.has(normalized)) {
+          exerciseNameMap.set(normalized, workout.exercise_name.trim());
+        }
+        
         let max1RM = 0;
         if (workout.sets_data && workout.sets_data.length > 0) {
           workout.sets_data.forEach(set => {
@@ -87,13 +95,16 @@ export default function AnalyticsDash({ refreshKey }) {
           max1RM = w * (1 + r / 30);
         }
         
-        const currentPr = prMap.get(workout.exercise_name) || 0;
-        if (max1RM > currentPr) prMap.set(workout.exercise_name, max1RM);
+        const currentPr = prMap.get(normalized) || 0;
+        if (max1RM > currentPr) prMap.set(normalized, max1RM);
       }
     });
 
     const prs = Array.from(prMap.entries())
-      .map(([exercise, maxWeight]) => ({ exercise, maxWeight }))
+      .map(([normalized, maxWeight]) => ({ 
+        exercise: exerciseNameMap.get(normalized), 
+        maxWeight 
+      }))
       .sort((a, b) => b.maxWeight - a.maxWeight);
 
     return { allMuscles: ['All', ...Array.from(muscleSet).sort()], prs };
@@ -166,8 +177,12 @@ export default function AnalyticsDash({ refreshKey }) {
     if (!selectedPrExercise) return [];
     
     const dataMap = new Map();
+    const normalizedSelected = selectedPrExercise.trim().toLowerCase();
+    
     workouts.forEach(w => {
-      if (w.exercise_name !== selectedPrExercise) return;
+      const normalizedExercise = (w.exercise_name || '').trim().toLowerCase();
+      if (normalizedExercise !== normalizedSelected) return;
+      
       const key = keyForDate(w.timestamp);
       
       let max1RM = 0;

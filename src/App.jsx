@@ -13,6 +13,8 @@ import RestTimerOverlay from './components/RestTimerOverlay';
 import WorkoutSummary from './components/WorkoutSummary';
 import ProfileManager from './components/ProfileManager';
 import WelcomeScreen from './components/WelcomeScreen';
+import PrivacyPolicyDialog from './components/PrivacyPolicyDialog';
+import OnboardingDialog from './components/OnboardingDialog';
 
 const tabs = [
   { id: 'dashboard', label: 'Dashboard', icon: Grid2X2 },
@@ -41,6 +43,8 @@ export default function App() {
   const [summaryData, setSummaryData] = useState(null);
   const [topBarVisible, setTopBarVisible] = useState(true);
   const [prevScrollY, setPrevScrollY] = useState(0);
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('jexi_theme') || 'default';
@@ -60,13 +64,27 @@ export default function App() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setAuthInitialized(true);
-      if (session) setShowWelcome(true);
+      if (session) {
+        setShowWelcome(true);
+        // After welcome screen, show privacy policy
+        setTimeout(() => {
+          setShowWelcome(false);
+          setShowPrivacyPolicy(true);
+        }, 1500);
+      }
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      if (session) {
+        setShowWelcome(true);
+        setTimeout(() => {
+          setShowWelcome(false);
+          setShowPrivacyPolicy(true);
+        }, 1500);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -146,10 +164,35 @@ export default function App() {
     return name.charAt(0).toUpperCase() + name.slice(1);
   })();
 
+  const handlePrivacyPolicyClose = () => {
+    setShowPrivacyPolicy(false);
+    // Check if user has seen onboarding before
+    const hasSeenOnboarding = localStorage.getItem('jexi_has_seen_onboarding');
+    if (!hasSeenOnboarding) {
+      setShowOnboarding(true);
+    }
+  };
+
+  const handleOnboardingComplete = () => {
+    localStorage.setItem('jexi_has_seen_onboarding', 'true');
+    setShowOnboarding(false);
+  };
+
+  const handleOnboardingSkip = () => {
+    localStorage.setItem('jexi_has_seen_onboarding', 'true');
+    setShowOnboarding(false);
+  };
+
   return (
     <div className="bg-app-bg h-[100dvh] flex justify-center overflow-hidden">
       {showWelcome && (
         <WelcomeScreen username={session.user.email.split('@')[0]} onComplete={() => setShowWelcome(false)} />
+      )}
+      {showPrivacyPolicy && (
+        <PrivacyPolicyDialog onClose={handlePrivacyPolicyClose} />
+      )}
+      {showOnboarding && (
+        <OnboardingDialog onComplete={handleOnboardingComplete} onSkip={handleOnboardingSkip} />
       )}
       {/* Centered mobile-like container */}
       <div className="w-full max-w-md bg-app-bg text-text-main font-sans relative h-[100dvh] flex flex-col">
