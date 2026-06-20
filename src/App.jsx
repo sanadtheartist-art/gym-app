@@ -168,7 +168,7 @@ export default function App() {
           
           {/* Top User Bar (scroll-aware) */}
           <div
-            className={`sticky top-0 left-0 right-0 z-30 box-border w-full flex items-center justify-between px-4 py-3 transition-all duration-300 ${headerHidden ? '-translate-y-full opacity-0 backdrop-blur-none' : 'translate-y-0 opacity-100 backdrop-blur-2xl'}`}
+            className={`sticky top-0 z-30 box-border w-full flex items-center justify-between px-4 py-3 backdrop-blur-2xl transition-all duration-300 ${headerHidden ? '-translate-y-full opacity-0' : 'translate-y-0 opacity-100'}`}
             style={{
               background: headerHidden ? 'transparent' : 'linear-gradient(to bottom, rgba(7,10,18,0.92), rgba(7,10,18,0.72))',
               borderBottom: headerHidden ? '0' : '1px solid rgba(255,255,255,0.04)',
@@ -268,7 +268,7 @@ export default function App() {
 
         {/* Bottom Nav (Fixed to bottom of screen) */}
         <nav
-          className={`sticky bottom-0 left-0 right-0 z-40 box-border w-full shrink-0 safe-bottom px-4 pb-3 pt-2 transition-all duration-300 ${navHidden ? 'translate-y-full opacity-0 pointer-events-none bg-transparent backdrop-blur-none' : 'translate-y-0 opacity-100 pointer-events-auto bg-app-bg/80 backdrop-blur-2xl'}`}
+          className={`sticky bottom-0 z-40 box-border w-full shrink-0 safe-bottom px-4 pb-3 pt-2 backdrop-blur-2xl transition-all duration-300 ${navHidden ? 'translate-y-full opacity-0 pointer-events-none bg-transparent backdrop-blur-none' : 'translate-y-0 opacity-100 pointer-events-auto bg-app-bg/80'}`}
         >
           <div className="mx-auto flex max-w-full items-center justify-around rounded-2xl glass-card px-2 py-1.5">
             {tabs.map((tab) => {
