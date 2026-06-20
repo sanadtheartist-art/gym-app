@@ -350,11 +350,13 @@ export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, 
             <div className="mt-6 grid gap-2 stagger-children">
               {selectedSplit.exercises.length ? selectedSplit.exercises.map((exercise, index) => (
                 <div key={exercise.id} className="group flex min-h-[56px] items-center justify-between rounded-xl bg-app-bg border border-glass-border px-2 sm:px-4 py-2 transition hover:border-white/20">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="flex items-center gap-3 min-w-0 flex-1 overflow-hidden">
                     <div className="grid h-8 w-8 place-items-center rounded-lg bg-card-elevated text-[10px] font-bold text-text-muted font-mono shrink-0">
                       {String(index + 1).padStart(2, '0')}
                     </div>
-                    <p className="truncate text-sm font-bold text-text-main">{exercise.exercise_name}</p>
+                    <p className="truncate text-sm font-bold text-text-main flex-1 min-w-0" title={exercise.exercise_name}>
+                      {exercise.exercise_name}
+                    </p>
                   </div>
                   
                   <div className="flex items-center gap-1 shrink-0 ml-2">
