@@ -270,8 +270,13 @@ export default function InputEngine({
       }, 1000);
       
     } catch (error) {
-      if ((error.message || '').toLowerCase().includes('row-level security') || (error.message || '').toLowerCase().includes('column "sets_data"')) {
-        setStatus('Supabase error: Please run the SQL command to add sets_data column.');
+      const msg = (error.message || '').toLowerCase();
+      
+      // Specifically check for storage-related RLS errors vs database errors
+      if (error.name === 'StorageError' || msg.includes('bucket') || (msg.includes('row-level security') && !msg.includes('insert'))) {
+        setStatus('Storage error: Please create a public "workout-media" bucket in Supabase storage.');
+      } else if (msg.includes('row-level security') || msg.includes('column "sets_data"')) {
+        setStatus('Supabase error: Please run the SQL command to add missing columns.');
       } else {
         setStatus(error.message || 'Save failed');
       }
