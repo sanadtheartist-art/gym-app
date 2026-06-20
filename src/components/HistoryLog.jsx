@@ -117,14 +117,12 @@ export default function HistoryLog({ refreshKey, onChanged, onRepeatWorkout }) {
                     <Trash2 size={16} />
                   </button>
                 </div>
-              </div>
-
               {workout.media_url && (
-                <div className="mt-2 w-full overflow-hidden rounded-xl bg-black">
+                <div className="mt-2">
                   {workout.media_url.match(/\.(mp4|webm|ogg)$/i) ? (
-                    <video src={workout.media_url} controls className="w-full max-h-48 object-contain" />
+                    <video src={workout.media_url} controls className="h-20 w-32 rounded-lg object-cover bg-black shadow-sm" />
                   ) : (
-                    <img src={workout.media_url} alt="Workout Media" className="w-full max-h-48 object-contain" />
+                    <img src={workout.media_url} alt="Workout Media" className="h-20 w-32 rounded-lg object-cover bg-card-elevated border border-glass-border shadow-sm" />
                   )}
                 </div>
               )}

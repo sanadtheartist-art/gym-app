@@ -176,7 +176,7 @@ export default function InputEngine({
         img.onload = () => {
           const canvas = document.createElement('canvas');
           let { width, height } = img;
-          const maxDim = 800; // max dimension to help reach 25KB
+          const maxDim = 480; // Extremely aggressive compression limit
           if (width > maxDim || height > maxDim) {
             if (width > height) {
               height = Math.round((height *= maxDim / width));
@@ -191,14 +191,14 @@ export default function InputEngine({
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
 
-          let quality = 0.8;
+          let quality = 0.5; // Start at 50%
           const attemptCompress = () => {
             canvas.toBlob((blob) => {
               if (blob.size / 1024 <= targetSizeKB || quality <= 0.1) {
                 // Ensure it gets saved as jpeg to support the compression
                 resolve(new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", { type: 'image/jpeg' }));
               } else {
-                quality -= 0.15;
+                quality -= 0.1;
                 attemptCompress();
               }
             }, 'image/jpeg', quality);
