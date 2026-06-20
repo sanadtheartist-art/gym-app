@@ -168,8 +168,11 @@ export default function App() {
           
           {/* Top User Bar (scroll-aware) */}
           <div
-            className={`sticky top-0 z-30 flex items-center justify-between px-4 py-3 backdrop-blur-2xl transition-transform duration-300 ${headerHidden ? '-translate-y-full opacity-0' : 'translate-y-0 opacity-100'}`}
-            style={{ background: 'linear-gradient(to bottom, rgba(7,10,18,0.92), rgba(7,10,18,0.72))' }}
+            className={`sticky top-0 z-30 box-border w-full flex items-center justify-between px-4 py-3 backdrop-blur-2xl transition-all duration-300 ${headerHidden ? '-translate-y-full opacity-0' : 'translate-y-0 opacity-100'}`}
+            style={{
+              background: headerHidden ? 'transparent' : 'linear-gradient(to bottom, rgba(7,10,18,0.92), rgba(7,10,18,0.72))',
+              borderBottom: headerHidden ? '0' : '1px solid rgba(255,255,255,0.04)',
+            }}
           >
             <div className="flex items-center gap-3">
                <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm overflow-hidden border border-white/10 flex-shrink-0"
@@ -264,7 +267,9 @@ export default function App() {
         </button>
 
         {/* Bottom Nav (Fixed to bottom of screen) */}
-        <nav className={`sticky bottom-0 shrink-0 safe-bottom bg-app-bg/80 px-4 pb-3 pt-2 backdrop-blur-2xl z-40 transition-transform duration-300 ${navHidden ? 'translate-y-full opacity-0' : 'translate-y-0 opacity-100'}`}>
+        <nav
+          className={`sticky bottom-0 left-0 right-0 z-40 box-border w-full shrink-0 safe-bottom px-4 pb-3 pt-2 backdrop-blur-2xl transition-all duration-300 ${navHidden ? 'translate-y-full opacity-0 pointer-events-none bg-transparent backdrop-blur-none' : 'translate-y-0 opacity-100 pointer-events-auto bg-app-bg/80'}`}
+        >
           <div className="mx-auto flex max-w-full items-center justify-around rounded-2xl glass-card px-2 py-1.5">
             {tabs.map((tab) => {
               const Icon = tab.icon;
