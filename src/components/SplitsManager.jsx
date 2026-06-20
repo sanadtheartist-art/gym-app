@@ -277,17 +277,17 @@ export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, 
           <div className="text-center text-text-muted py-8 shimmer-bg rounded-xl">Loading routines</div>
         ) : selectedSplit ? (
           <>
-            <div className="flex items-start justify-between gap-3">
-              <div>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">
                   {activeSplit?.id === selectedSplit.id ? 'Active Routine' : 'Selected Routine'}
                 </p>
-                <h2 className="mt-1 text-2xl font-extrabold text-text-main flex items-center gap-2">
+                <h2 className="mt-1 flex items-center gap-2 text-2xl font-extrabold text-text-main">
                   {selectedSplit.name}
                   {activeSplit?.id === selectedSplit.id && <span className="live-dot ml-1" />}
                 </h2>
               </div>
-              <div className="flex gap-2">
+              <div className="ml-auto flex shrink-0 gap-2">
                 <button
                   type="button"
                   onClick={() => deleteSplit(selectedSplit.id)}
@@ -299,7 +299,7 @@ export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, 
                 <button
                   type="button"
                   onClick={() => onLaunchSplit?.(selectedSplit)}
-                  className="flex h-11 items-center gap-2 rounded-xl bg-accent-lime px-4 text-sm font-extrabold text-app-bg transition hover:shadow-glow-lime active:scale-95"
+                  className="flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl bg-accent-lime px-4 text-sm font-extrabold text-app-bg transition hover:shadow-glow-lime active:scale-95"
                 >
                   <Play size={16} className="fill-current" />
                   Launch
