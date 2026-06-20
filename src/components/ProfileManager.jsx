@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
-import { X, Upload, User, Palette, LogOut, Check, Pencil, Target, Ruler, Scale, Trash2, AlertTriangle, Database } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, User, Palette, LogOut, Check, Target, Ruler, Scale, Trash2, AlertTriangle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import DataPortability from './DataPortability';
 
@@ -19,14 +19,9 @@ const loadProfile = () => {
 const saveProfile = (data) => localStorage.setItem('jexi_profile', JSON.stringify(data));
 
 export default function ProfileManager({ visible, onClose, session, onLogout, onOpenDataVault }) {
-  const fileInputRef = useRef(null);
-  const [avatarUrl, setAvatarUrl] = useState(null);
-  const [avatarSvgContent, setAvatarSvgContent] = useState(null);
-  const [uploading, setUploading] = useState(false);
   const [currentTheme, setCurrentTheme] = useState('default');
   const [profile, setProfile] = useState({ age: '', weight: '', weightUnit: 'kg', height: '', heightUnit: 'cm', goal: '' });
-  const [editingField, setEditingField] = useState(null);
-  const [deleteStep, setDeleteStep] = useState(0); // 0=idle 1=warn 2=confirm
+  const [deleteStep, setDeleteStep] = useState(0);
   const [deleteInput, setDeleteInput] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
@@ -36,10 +31,6 @@ export default function ProfileManager({ visible, onClose, session, onLogout, on
     const savedTheme = localStorage.getItem('jexi_theme') || 'default';
     setCurrentTheme(savedTheme);
     document.documentElement.setAttribute('data-theme', savedTheme);
-
-    setAvatarUrl(localStorage.getItem('jexi_avatar'));
-    setAvatarSvgContent(localStorage.getItem('jexi_avatar_svg'));
-
     const saved = loadProfile();
     setProfile(p => ({ ...p, ...saved }));
   }, [visible]);
@@ -81,36 +72,6 @@ export default function ProfileManager({ visible, onClose, session, onLogout, on
     }
   };
 
-  const uploadAvatar = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const isSvg = file.type === 'image/svg+xml' || file.name.toLowerCase().endsWith('.svg');
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target.result;
-      if (isSvg) {
-        setAvatarSvgContent(result);
-        setAvatarUrl(null);
-        localStorage.setItem('jexi_avatar_svg', result);
-        localStorage.removeItem('jexi_avatar');
-      } else {
-        setAvatarUrl(result);
-        setAvatarSvgContent(null);
-        localStorage.setItem('jexi_avatar', result);
-        localStorage.removeItem('jexi_avatar_svg');
-      }
-      window.dispatchEvent(new Event('avatarUpdated'));
-    };
-    isSvg ? reader.readAsText(file) : reader.readAsDataURL(file);
-    try {
-      setUploading(true);
-      const fileExt = file.name.split('.').pop();
-      await supabase.storage.from('workout-media').upload(
-        `avatars/avatar_${session.user.id}_${Date.now()}.${fileExt}`, file, { upsert: true }
-      );
-    } catch (e) { /* silent fail, local preview works */ } finally { setUploading(false); }
-  };
-
   const updateProfile = (key, value) => {
     const updated = { ...profile, [key]: value };
     setProfile(updated);
@@ -142,29 +103,18 @@ export default function ProfileManager({ visible, onClose, session, onLogout, on
 
           {/* Avatar + Name */}
           <div className="flex items-center gap-5 mb-8 p-4 rounded-2xl bg-card-elevated border border-glass-border">
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="relative group flex-shrink-0 w-20 h-20 rounded-2xl overflow-hidden border-2 border-glass-border bg-card-elevated flex items-center justify-center transition hover:border-accent-primary hover:scale-105"
-            >
-              {avatarSvgContent ? (
-                <div className="w-full h-full flex items-center justify-center p-1.5 [&>svg]:w-full [&>svg]:h-full" dangerouslySetInnerHTML={{ __html: avatarSvgContent }} />
-              ) : avatarUrl ? (
-                <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-              ) : (
-                <User size={32} className="text-text-muted" />
-              )}
-              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-2xl">
-                <Upload size={20} className="text-white" />
-              </div>
-            </button>
-            <input ref={fileInputRef} type="file" accept="image/*,.svg" className="hidden" onChange={uploadAvatar} disabled={uploading} />
+            <div className="w-20 h-20 rounded-2xl bg-card-bg border border-glass-border flex items-center justify-center flex-shrink-0">
+              <span
+                className="text-3xl font-extrabold"
+                style={{ color: 'var(--accent-primary)' }}
+              >
+                {username.charAt(0).toUpperCase()}
+              </span>
+            </div>
 
             <div className="flex-1 min-w-0">
               <p className="text-lg font-extrabold text-text-main truncate">{username}</p>
               <p className="text-xs text-text-muted mt-0.5 truncate">{session.user.email}</p>
-              <p className="text-[11px] text-accent-primary mt-1.5 font-medium">
-                {uploading ? 'Syncing avatar…' : 'Tap to change avatar · SVG supported'}
-              </p>
             </div>
           </div>
 

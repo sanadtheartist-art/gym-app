@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import React from 'react';
-import { ChevronDown, Dumbbell, Save, Upload, X, Plus, Trash2, Calculator, CheckCircle2 } from 'lucide-react';
+import { ChevronDown, Dumbbell, Save, X, Plus, Trash2, Calculator, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import PlateCalculator from './PlateCalculator';
 import { COMMON_MUSCLE_PRESETS, EXPLICIT_MUSCLE_LIST } from '../data/muscles';
@@ -28,7 +28,6 @@ export default function InputEngine({
   const [exerciseSuggestions, setExerciseSuggestions] = useState([]);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [assistedMuscles, setAssistedMuscles] = useState({});
-  const [mediaFile, setMediaFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState('');
   const [calcOpen, setCalcOpen] = useState(false);
@@ -164,32 +163,12 @@ export default function InputEngine({
     });
   };
 
-  const uploadMedia = async () => {
-    if (!mediaFile) return '';
-
-    const fileExt = mediaFile.name.split('.').pop();
-    const fileName = `${Math.random()}.${fileExt}`;
-    const filePath = `entries/${fileName}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from('workout-media')
-      .upload(filePath, mediaFile);
-
-    if (uploadError) {
-      throw uploadError;
-    }
-
-    const { data } = supabase.storage.from('workout-media').getPublicUrl(filePath);
-    return data.publicUrl;
-  };
-
   const submitEntry = async (event) => {
     event.preventDefault();
     setSaving(true);
     setStatus('');
 
     try {
-      const mediaUrl = await uploadMedia();
       const assistedPayload = JSON.parse(JSON.stringify(assistedMuscles));
 
       const parsedSets = form.dynamicSets.map((s, idx) => {
@@ -227,7 +206,6 @@ export default function InputEngine({
         assisted_muscles: assistedPayload,
         custom_notes: form.customNotes.trim(),
         split_id: activeSplit?.id || null,
-        media_url: mediaUrl,
       };
 
       if (navigator.onLine) {
@@ -244,7 +222,6 @@ export default function InputEngine({
         unit: current.unit,
       }));
       setAssistedMuscles({});
-      setMediaFile(null);
       
       setShowSuccess(true);
       setTimeout(() => {
@@ -618,24 +595,7 @@ export default function InputEngine({
               </div>
             ) : null}
 
-            {/* Media upload */}
-            <label className="flex cursor-pointer items-center gap-4 rounded-2xl bg-app-bg border border-glass-border px-4 py-3 transition hover:bg-card-elevated">
-              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-card-elevated text-text-main">
-                <Upload size={18} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-bold text-text-main">Media Vault</span>
-                <span className="block truncate text-xs font-medium text-text-muted">{mediaFile?.name || 'Image or video'}</span>
-              </span>
-              <input
-                type="file"
-                accept="image/*,video/*"
-                className="hidden"
-                onChange={(event) => setMediaFile(event.target.files?.[0] || null)}
-              />
-            </label>
 
-            {/* Save button */}
             <button
               type="submit"
               disabled={saving || showSuccess}

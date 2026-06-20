@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Activity, ClipboardList, FolderOpen, Grid2X2, Plus, User } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import AuthScreen from './components/AuthScreen';
@@ -254,23 +254,21 @@ export default function App() {
                 </button>
               );
 
-              if (index === 1) {
-                return (
-                  <div key={tab.id} className="flex items-center gap-1">
-                    {btn}
+              return (
+                <React.Fragment key={tab.id}>
+                  {btn}
+                  {index === 1 && (
                     <button
                       type="button"
                       aria-label="Log new set"
                       onClick={handleOpenInput}
-                      className="mx-2 z-50 grid h-12 w-12 flex-shrink-0 place-items-center rounded-full bg-accent-primary text-app-bg transition active:scale-90"
+                      className="mx-1 z-50 grid h-[52px] w-[52px] flex-shrink-0 place-items-center rounded-full bg-accent-primary text-app-bg transition active:scale-90"
                     >
-                      <Plus size={22} strokeWidth={3} />
+                      <Plus size={24} strokeWidth={2.5} />
                     </button>
-                  </div>
-                );
-              }
-
-              return btn;
+                  )}
+                </React.Fragment>
+              );
             })}
           </div>
         </nav>
