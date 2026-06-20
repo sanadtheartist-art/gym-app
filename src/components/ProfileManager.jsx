@@ -21,7 +21,7 @@ const loadProfile = () => {
 
 const saveProfile = (data) => localStorage.setItem('jexi_profile', JSON.stringify(data));
 
-export default function ProfileManager({ visible, onClose, session, onLogout }) {
+export default function ProfileManager({ visible, onClose, session, onLogout, onOpenDataVault }) {
   const fileInputRef = useRef(null);
   const [avatarUrl, setAvatarUrl] = useState(null);
   const [avatarSvgContent, setAvatarSvgContent] = useState(null);
