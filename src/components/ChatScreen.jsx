@@ -154,7 +154,7 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
           </button>
           <div>
             <h2 className="text-lg font-extrabold text-text-main">
-              {otherUser?.email || 'Chat'}
+              {otherUser?.email ? otherUser.email.split('@')[0] : 'Chat'}
             </h2>
           </div>
         </div>

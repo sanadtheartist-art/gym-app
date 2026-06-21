@@ -8,6 +8,12 @@ export default function SearchUsersModal({ isOpen, onClose, onStartChat }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  // Format email to show username only
+  const formatUsername = (email) => {
+    if (!email) return 'Unknown User';
+    return email.split('@')[0];
+  };
+
   // Fetch users when search query changes
   useEffect(() => {
     if (searchQuery.trim() === '') {
@@ -101,10 +107,10 @@ export default function SearchUsersModal({ isOpen, onClose, onStartChat }) {
               >
                 <div className="flex items-center gap-3">
                   <div className="grid h-10 w-10 place-items-center rounded-full bg-card-elevated text-text-main">
-                    {user.email?.charAt(0).toUpperCase() || 'U'}
+                    {formatUsername(user.email)?.charAt(0).toUpperCase() || 'U'}
                   </div>
                   <div>
-                    <p className="font-bold text-text-main">{user.email}</p>
+                    <p className="font-bold text-text-main">{formatUsername(user.email)}</p>
                     <p className="text-xs text-text-muted">{user.email}</p>
                   </div>
                 </div>

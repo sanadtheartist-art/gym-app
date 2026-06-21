@@ -151,6 +151,12 @@ export default function ConversationList({ isOpen, onClose, onSelectConversation
               );
               const otherUser = otherParticipants?.[0]?.profiles;
 
+              // Format email to show username only
+              const formatUsername = (email) => {
+                if (!email) return 'Unknown User';
+                return email.split('@')[0];
+              };
+
               return (
                 <div
                   key={conv.id}
@@ -161,11 +167,11 @@ export default function ConversationList({ isOpen, onClose, onSelectConversation
                   className="flex items-center gap-3 rounded-xl bg-app-bg border border-glass-border p-4 cursor-pointer hover:border-white/20 transition-all active:scale-[0.98]"
                 >
                   <div className="grid h-12 w-12 place-items-center rounded-full bg-card-elevated text-text-main font-bold">
-                    {otherUser?.email?.charAt(0).toUpperCase() || '?'}
+                    {formatUsername(otherUser?.email)?.charAt(0).toUpperCase() || '?'}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-text-main truncate">
-                      {otherUser?.email || 'Unknown User'}
+                      {formatUsername(otherUser?.email)}
                     </p>
                     <p className="text-xs text-text-muted truncate">
                       Tap to open chat
