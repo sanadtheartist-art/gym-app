@@ -18,14 +18,30 @@ export default function SearchUsersModal({ isOpen, onClose, onStartChat }) {
     const fetchUsers = async () => {
       setLoading(true);
       try {
-        const { data, error } = await supabase
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        console.log('Searching for users with query:', searchQuery);
+        console.log('Current user ID:', user?.id);
+        
+        let query = supabase
           .from('profiles')
           .select('*')
-          .ilike('email', `%${searchQuery}%`)
-          .neq('id', (await supabase.auth.getUser()).data.user?.id); // Don't show current user
+          .ilike('email', `%${searchQuery}%`);
+        
+        // Exclude current user if they're logged in
+        if (user?.id) {
+          query = query.neq('id', user.id);
+        }
+        
+        const { data, error } = await query;
+        
+        console.log('Search result data:', data);
+        console.log('Search result error:', error);
 
         if (!error) {
           setUsers(data || []);
+        } else {
+          console.error('Supabase error:', error);
         }
       } catch (err) {
         console.error('Error searching users:', err);
