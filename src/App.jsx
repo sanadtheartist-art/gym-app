@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Activity, ClipboardList, FolderOpen, Grid2X2, Plus, User } from 'lucide-react';
+import { Activity, ClipboardList, FolderOpen, Grid2X2, Plus, User, MessageSquare } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import AuthScreen from './components/AuthScreen';
 import ActiveSessionHeader from './components/ActiveSessionHeader';
@@ -15,6 +15,9 @@ import ProfileManager from './components/ProfileManager';
 import WelcomeScreen from './components/WelcomeScreen';
 import PrivacyPolicyDialog from './components/PrivacyPolicyDialog';
 import OnboardingDialog from './components/OnboardingDialog';
+import SearchUsersModal from './components/SearchUsersModal';
+import ConversationList from './components/ConversationList';
+import ChatScreen from './components/ChatScreen';
 import { cleanupOldMedia } from './lib/mediaCleanup';
 
 const tabs = [
@@ -46,6 +49,13 @@ export default function App() {
   const [prevScrollY, setPrevScrollY] = useState(0);
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  
+  // Chat state
+  const [showSearchUsers, setShowSearchUsers] = useState(false);
+  const [showConversationList, setShowConversationList] = useState(false);
+  const [showChatScreen, setShowChatScreen] = useState(false);
+  const [selectedConversation, setSelectedConversation] = useState(null);
+  const [selectedOtherUser, setSelectedOtherUser] = useState(null);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('jexi_theme') || 'default';
@@ -196,6 +206,67 @@ export default function App() {
     setShowOnboarding(false);
   };
 
+  // Chat handlers
+  const handleStartChat = async (user) => {
+    try {
+      // Check if there's already a conversation with this user
+      const { data: existingConversations, error: convError } = await supabase
+        .from('conversations')
+        .select(`
+          *,
+          conversation_participants!inner (
+            user_id
+          )
+        `)
+        .contains('conversation_participants', [{ user_id: user.id }]);
+
+      let conversationId;
+
+      if (existingConversations?.length > 0) {
+        conversationId = existingConversations[0].id;
+        setSelectedConversation(existingConversations[0]);
+      } else {
+        // Create new conversation
+        const { data: newConv, error: createError } = await supabase
+          .from('conversations')
+          .insert({})
+          .select('*')
+          .single();
+
+        if (createError) throw createError;
+        conversationId = newConv.id;
+        setSelectedConversation(newConv);
+
+        // Add both participants
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        await supabase
+          .from('conversation_participants')
+          .insert([
+            { conversation_id: conversationId, user_id: currentUser.id },
+            { conversation_id: conversationId, user_id: user.id }
+          ]);
+      }
+
+      setSelectedOtherUser(user);
+      setShowChatScreen(true);
+    } catch (err) {
+      console.error('Error starting chat:', err);
+    }
+  };
+
+  const handleSelectConversation = (conv) => {
+    // Get other user
+    const otherParticipants = conv.conversation_participants?.filter(
+      (p) => p.profiles?.id !== (supabase.auth.getUser()).data.user?.id
+    );
+    const otherUser = otherParticipants?.[0]?.profiles;
+
+    setSelectedConversation(conv);
+    setSelectedOtherUser(otherUser);
+    setShowConversationList(false);
+    setShowChatScreen(true);
+  };
+
   return (
     <div className="bg-app-bg h-[100dvh] flex justify-center overflow-hidden">
       {showWelcome && (
@@ -245,14 +316,25 @@ export default function App() {
                 </span>
               </div>
             </div>
-            <button
-              onClick={() => setProfileVisible(true)}
-              className="p-2 transition-colors rounded-lg"
-              style={{ color: 'var(--text-muted)' }}
-              aria-label="Manage Profile"
-            >
-              <User size={18} />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setShowConversationList(true);
+                }}
+                className="grid h-10 w-10 place-items-center rounded-xl bg-card-elevated text-text-muted hover:text-text-main transition active:scale-95"
+                aria-label="Conversations"
+              >
+                <MessageSquare size={18} />
+              </button>
+              <button
+                onClick={() => setProfileVisible(true)}
+                className="p-2 transition-colors rounded-lg"
+                style={{ color: 'var(--text-muted)' }}
+                aria-label="Manage Profile"
+              >
+                <User size={18} />
+              </button>
+            </div>
           </div>
 
           <ActiveSessionHeader
@@ -365,6 +447,31 @@ export default function App() {
           session={session}
           onLogout={handleLogout}
           onOpenDataVault={() => { setActiveTab('data'); setProfileVisible(false); }}
+        />
+
+        {/* Chat Components */}
+        <SearchUsersModal
+          isOpen={showSearchUsers}
+          onClose={() => setShowSearchUsers(false)}
+          onStartChat={handleStartChat}
+        />
+
+        <ConversationList
+          isOpen={showConversationList}
+          onClose={() => setShowConversationList(false)}
+          onSelectConversation={handleSelectConversation}
+          onOpenFindUsers={() => setShowSearchUsers(true)}
+        />
+
+        <ChatScreen
+          isOpen={showChatScreen}
+          onClose={() => {
+            setShowChatScreen(false);
+            setSelectedConversation(null);
+            setSelectedOtherUser(null);
+          }}
+          conversation={selectedConversation}
+          otherUser={selectedOtherUser}
         />
       </div>
     </div>
