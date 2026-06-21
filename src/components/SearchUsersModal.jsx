@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Search, MessageSquare } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { playTapSound } from '../lib/sounds';
+import { getBlockRowsForUser, getBlockedUserIds } from '../lib/userBlocks';
 
 export default function SearchUsersModal({ isOpen, onClose, onStartChat }) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -45,7 +46,15 @@ export default function SearchUsersModal({ isOpen, onClose, onStartChat }) {
         console.log('Search result error:', error);
 
         if (!error) {
-          setUsers(data || []);
+          let visibleUsers = data || [];
+
+          if (user?.id) {
+            const blockRows = await getBlockRowsForUser(user.id);
+            const blockedUserIds = getBlockedUserIds(user.id, blockRows);
+            visibleUsers = visibleUsers.filter((profile) => !blockedUserIds.has(profile.id));
+          }
+
+          setUsers(visibleUsers);
         } else {
           console.error('Supabase error:', error);
         }

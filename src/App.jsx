@@ -19,6 +19,7 @@ import SearchUsersModal from './components/SearchUsersModal';
 import ConversationList from './components/ConversationList';
 import ChatScreen from './components/ChatScreen';
 import { cleanupOldMedia } from './lib/mediaCleanup';
+import { getBlockRowsForUser, getBlockedUserIds, getBlockStateBetweenUsers } from './lib/userBlocks';
 
 const tabs = [
   { id: 'dashboard', label: 'Dashboard', icon: Grid2X2 },
@@ -146,10 +147,38 @@ export default function App() {
         return;
       }
 
+      const [
+        participantDetailsResult,
+        blockRows
+      ] = await Promise.all([
+        supabase
+          .from('conversation_participants')
+          .select('conversation_id, user_id')
+          .in('conversation_id', conversationIds),
+        getBlockRowsForUser(currentUserId)
+      ]);
+
+      if (participantDetailsResult.error) throw participantDetailsResult.error;
+
+      const blockedUserIds = getBlockedUserIds(currentUserId, blockRows);
+      const participantDetails = participantDetailsResult.data || [];
+      const allowedConversationIds = conversationIds.filter((conversationId) => {
+        const otherParticipants = participantDetails.filter(
+          (row) => row.conversation_id === conversationId && row.user_id !== currentUserId
+        );
+
+        return otherParticipants.every((row) => !blockedUserIds.has(row.user_id));
+      });
+
+      if (allowedConversationIds.length === 0) {
+        setHasUnreadMessages(false);
+        return;
+      }
+
       const { count, error: unreadError } = await supabase
         .from('messages')
         .select('id', { count: 'exact', head: true })
-        .in('conversation_id', conversationIds)
+        .in('conversation_id', allowedConversationIds)
         .neq('sender_id', currentUserId)
         .is('read_at', null);
 
@@ -185,6 +214,17 @@ export default function App() {
           event: '*',
           schema: 'public',
           table: 'conversation_participants'
+        },
+        () => {
+          loadUnreadMessageState();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_blocks'
         },
         () => {
           loadUnreadMessageState();
@@ -299,6 +339,17 @@ export default function App() {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (!currentUser) {
         console.error('No current user found!');
+        return;
+      }
+
+      const blockState = await getBlockStateBetweenUsers(currentUser.id, user.id);
+      if (blockState.blockedByMe) {
+        alert('You blocked this user. Unblock them first to chat again.');
+        return;
+      }
+
+      if (blockState.blockedMe) {
+        alert('You cannot start a chat because this user blocked you.');
         return;
       }
       
@@ -608,6 +659,7 @@ export default function App() {
             setShowChatScreen(false);
             setSelectedConversation(null);
             setSelectedOtherUser(null);
+            loadUnreadMessageState();
           }}
           conversation={selectedConversation}
           otherUser={selectedOtherUser}

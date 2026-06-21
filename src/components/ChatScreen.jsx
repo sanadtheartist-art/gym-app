@@ -1,7 +1,8 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { X, Send, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { playTapSound, playSuccessSound } from '../lib/sounds';
+import { blockUser, getBlockStateBetweenUsers, unblockUser } from '../lib/userBlocks';
 
 const MESSAGE_PHOTO_EXPIRY_MS = 48 * 60 * 60 * 1000;
 
@@ -10,6 +11,12 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [blockState, setBlockState] = useState({
+    blockedByMe: false,
+    blockedMe: false,
+    hasBlock: false,
+  });
+  const [blockActionLoading, setBlockActionLoading] = useState(false);
   const messagesEndRef = useRef(null);
   
   // Get current user ID
@@ -33,6 +40,87 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
   const isPhotoExpired = (message) => {
     if (!message?.photo_url || !message?.created_at) return false;
     return Date.now() - new Date(message.created_at).getTime() >= MESSAGE_PHOTO_EXPIRY_MS;
+  };
+
+  const loadBlockState = useCallback(async () => {
+    if (!currentUserId || !otherUser?.id) {
+      setBlockState({
+        blockedByMe: false,
+        blockedMe: false,
+        hasBlock: false,
+      });
+      return;
+    }
+
+    try {
+      const nextBlockState = await getBlockStateBetweenUsers(currentUserId, otherUser.id);
+      setBlockState(nextBlockState);
+    } catch (err) {
+      console.error('Error loading block state:', err);
+    }
+  }, [currentUserId, otherUser?.id]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    loadBlockState();
+  }, [isOpen, loadBlockState]);
+
+  useEffect(() => {
+    if (!isOpen || !currentUserId) return undefined;
+
+    const blockChannel = supabase
+      .channel(`chat-blocks:${conversation?.id || 'unknown'}:${currentUserId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_blocks'
+        },
+        () => {
+          loadBlockState();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      blockChannel.unsubscribe();
+    };
+  }, [isOpen, conversation?.id, currentUserId, loadBlockState]);
+
+  const handleToggleBlock = async () => {
+    if (!currentUserId || !otherUser?.id || blockState.blockedMe) return;
+
+    const shouldBlock = !blockState.blockedByMe;
+    const confirmMessage = shouldBlock
+      ? `Block ${otherUser.email?.split('@')[0] || 'this user'}? You will not be able to send messages until you unblock them.`
+      : `Unblock ${otherUser.email?.split('@')[0] || 'this user'}?`;
+
+    if (!window.confirm(confirmMessage)) return;
+
+    setBlockActionLoading(true);
+    try {
+      if (shouldBlock) {
+        await blockUser(currentUserId, otherUser.id);
+        setBlockState({
+          blockedByMe: true,
+          blockedMe: false,
+          hasBlock: true,
+        });
+      } else {
+        await unblockUser(currentUserId, otherUser.id);
+        setBlockState({
+          blockedByMe: false,
+          blockedMe: false,
+          hasBlock: false,
+        });
+      }
+    } catch (err) {
+      console.error('Error updating block state:', err);
+      alert(`Could not ${shouldBlock ? 'block' : 'unblock'} this user.`);
+    } finally {
+      setBlockActionLoading(false);
+    }
   };
 
   // Mark messages as read when chat is opened
@@ -112,6 +200,7 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
   const handlePhotoUpload = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    if (blockState.hasBlock) return;
 
     setSending(true);
     try {
@@ -140,6 +229,15 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
   // Send message
   const sendMessage = async (content = newMessage, photoUrl = null) => {
     if ((!content?.trim() && !photoUrl) || !currentUserId) return;
+    if (blockState.blockedByMe) {
+      alert('Unblock this user before sending messages.');
+      return;
+    }
+
+    if (blockState.blockedMe) {
+      alert('You cannot send messages because this user blocked you.');
+      return;
+    }
 
     setSending(true);
     try {
@@ -191,10 +289,33 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
             </h2>
           </div>
         </div>
+        {otherUser?.id && !blockState.blockedMe && (
+          <button
+            onClick={handleToggleBlock}
+            disabled={blockActionLoading}
+            className={`rounded-xl px-3 py-2 text-xs font-bold transition active:scale-95 disabled:opacity-50 ${
+              blockState.blockedByMe
+                ? 'bg-accent-lime text-app-bg'
+                : 'bg-card-elevated text-text-main'
+            }`}
+          >
+            {blockState.blockedByMe ? 'Unblock' : 'Block'}
+          </button>
+        )}
       </div>
 
       {/* Messages List */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {blockState.blockedByMe && (
+          <div className="rounded-2xl border border-glass-border bg-card-elevated px-4 py-3 text-sm text-text-muted">
+            You blocked this user. Unblock them to send messages again.
+          </div>
+        )}
+        {blockState.blockedMe && (
+          <div className="rounded-2xl border border-glass-border bg-card-elevated px-4 py-3 text-sm text-text-muted">
+            This user blocked you. You can view old messages but cannot reply.
+          </div>
+        )}
         {messages.map((msg) => {
           const isCurrentUser = msg.sender_id === currentUserId;
           const photoExpired = isPhotoExpired(msg);
@@ -251,15 +372,15 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
               accept="image/*"
               className="hidden"
               onChange={handlePhotoUpload}
-              disabled={sending}
+              disabled={sending || blockState.hasBlock}
             />
           </label>
           <input
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Type a message..."
-            disabled={sending}
+            placeholder={blockState.hasBlock ? 'Messaging unavailable' : 'Type a message...'}
+            disabled={sending || blockState.hasBlock}
             className="h-12 flex-1 rounded-2xl bg-card-elevated border border-glass-border px-4 text-sm font-medium text-text-main outline-none focus:border-accent-lime transition disabled:opacity-50"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
@@ -270,7 +391,7 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
           />
           <button
             onClick={() => sendMessage()}
-            disabled={sending || !newMessage.trim()}
+            disabled={sending || !newMessage.trim() || blockState.hasBlock}
             className="grid h-12 w-12 place-items-center rounded-2xl bg-accent-lime text-app-bg transition active:scale-95 disabled:opacity-50"
           >
             <Send size={20} />

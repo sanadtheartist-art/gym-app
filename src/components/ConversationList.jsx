@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { X, UserPlus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { playTapSound } from '../lib/sounds';
+import { getBlockRowsForUser, getBlockStateFromRows } from '../lib/userBlocks';
 
 export default function ConversationList({ isOpen, onClose, onSelectConversation, onOpenFindUsers }) {
   const [conversations, setConversations] = useState([]);
@@ -112,6 +113,8 @@ export default function ConversationList({ isOpen, onClose, onSelectConversation
         profilesById = new Map((profileRows || []).map((profile) => [profile.id, profile]));
       }
 
+      const blockRows = await getBlockRowsForUser(currentUserId);
+
       const conversationsWithDetails = (conversationRows || [])
         .map((conversation) => {
           const participants = participantsByConversation.get(conversation.id) || [];
@@ -120,6 +123,7 @@ export default function ConversationList({ isOpen, onClose, onSelectConversation
           const otherParticipant = participants.find((participant) => participant.user_id !== currentUserId);
           const fallbackUserId = lastMessage?.sender_id !== currentUserId ? lastMessage?.sender_id : null;
           const otherUserId = otherParticipant?.user_id || fallbackUserId;
+          const blockState = getBlockStateFromRows(currentUserId, otherUserId, blockRows);
 
           return {
             ...conversation,
@@ -128,8 +132,11 @@ export default function ConversationList({ isOpen, onClose, onSelectConversation
               profiles: participant.user_id === currentUserId ? null : profilesById.get(participant.user_id) || null
             })),
             last_message: lastMessage,
-            has_unread: Boolean(lastMessage && lastMessage.sender_id !== currentUserId && !lastMessage.read_at),
-            other_user: otherUserId ? profilesById.get(otherUserId) || null : null
+            has_unread: Boolean(lastMessage && lastMessage.sender_id !== currentUserId && !lastMessage.read_at && !blockState.hasBlock),
+            other_user: otherUserId ? profilesById.get(otherUserId) || null : null,
+            is_blocked: blockState.hasBlock,
+            blocked_by_me: blockState.blockedByMe,
+            blocked_me: blockState.blockedMe
           };
         })
         .sort((a, b) => getConversationActivityTime(b).localeCompare(getConversationActivityTime(a)));
@@ -177,10 +184,22 @@ export default function ConversationList({ isOpen, onClose, onSelectConversation
         loadConversations();
       })
       .subscribe();
+
+    const blockSub = supabase
+      .channel('user-block-updates-for-conversations')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'user_blocks'
+      }, () => {
+        loadConversations();
+      })
+      .subscribe();
       
     return () => {
       participantSub.unsubscribe();
       messageSub.unsubscribe();
+      blockSub.unsubscribe();
     };
   }, [isOpen, currentUserId, loadConversations]);
 
@@ -248,7 +267,11 @@ export default function ConversationList({ isOpen, onClose, onSelectConversation
                       {formatUsername(otherUser?.email)}
                     </p>
                     <p className="text-xs text-text-muted truncate">
-                      {conv.last_message?.content || 'Tap to open chat'}
+                      {conv.blocked_by_me
+                        ? 'You blocked this user'
+                        : conv.blocked_me
+                          ? 'This user blocked you'
+                          : conv.last_message?.content || 'Tap to open chat'}
                     </p>
                   </div>
                 </div>
