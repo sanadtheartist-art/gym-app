@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, FolderOpen, Play, Plus, Trash2, Edit2, Check, Downl
 import { supabase } from '../lib/supabase';
 import { getCachedData, cacheData } from '../lib/offlineSync';
 import { playTapSound } from '../lib/sounds';
+import CountdownAction from './CountdownAction';
 
 export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, onChanged }) {
   const [splits, setSplits] = useState([]);
@@ -427,14 +428,15 @@ export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, 
                   
                     {deletingSplitId === split.id ? (
                       <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                        <span className="text-xs font-bold text-quiet-red animate-pulse">Deleting in {deleteCountdown}...</span>
-                        <button
-                          type="button"
-                          onClick={() => { setDeletingSplitId(''); setDeleteCountdown(0); }}
-                          className="h-8 rounded bg-card-elevated px-3 text-[11px] font-bold text-text-muted hover:text-text-main transition active:scale-95"
-                        >
-                          Cancel
-                        </button>
+                        <CountdownAction
+                          label="Deleting"
+                          countdown={deleteCountdown}
+                          onCancel={() => {
+                            setDeletingSplitId('');
+                            setDeleteCountdown(0);
+                          }}
+                          compact
+                        />
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 ml-4">
@@ -477,10 +479,6 @@ export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, 
                       </div>
                     )}
                   </div>
-
-                  {deletingSplitId === split.id && (
-                    <div className="absolute top-0 left-0 h-full w-full pointer-events-none bg-quiet-red/10 border border-quiet-red shadow-[inset_0_0_20px_rgba(255,77,77,0.1)] transition-all duration-300 z-10" />
-                  )}
 
                 {/* Accordion Body */}
                 {isExpanded && (

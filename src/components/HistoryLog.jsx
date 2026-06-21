@@ -3,11 +3,14 @@ import { Trash2, RotateCcw, Search, Dumbbell } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { loadWorkouts, cacheData, getPendingSyncItems, queueSyncAction } from '../lib/offlineSync';
 import { playTapSound } from '../lib/sounds';
+import CountdownAction from './CountdownAction';
 export default function HistoryLog({ refreshKey, onChanged, onRepeatWorkout }) {
   const [workouts, setWorkouts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedLogId, setExpandedLogId] = useState('');
+  const [deletingWorkoutId, setDeletingWorkoutId] = useState('');
+  const [deleteCountdown, setDeleteCountdown] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -27,32 +30,44 @@ export default function HistoryLog({ refreshKey, onChanged, onRepeatWorkout }) {
     };
   }, [refreshKey]);
 
-  const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this workout?")) {
-      // Optimistic Update
-      const updatedWorkouts = workouts.filter((w) => w.id !== id);
-      setWorkouts(updatedWorkouts);
-      cacheData('workouts_history', updatedWorkouts).catch(console.error);
+  useEffect(() => {
+    let timer;
 
-      if (navigator.onLine) {
-        const { error } = await supabase.from('workouts').delete().eq('id', id);
-        if (error) {
-          console.error('Error deleting workout:', error);
-          // Rollback if needed
-          setWorkouts(workouts);
-          cacheData('workouts_history', workouts).catch(console.error);
-        } else {
-          if (onChanged) onChanged();
-        }
+    if (deletingWorkoutId && deleteCountdown > 0) {
+      timer = setTimeout(() => setDeleteCountdown((count) => count - 1), 1000);
+    } else if (deletingWorkoutId && deleteCountdown === 0) {
+      handleDelete(deletingWorkoutId);
+      setDeletingWorkoutId('');
+    }
+
+    return () => clearTimeout(timer);
+  }, [deletingWorkoutId, deleteCountdown]);
+
+  const handleDelete = async (id) => {
+    // Optimistic Update
+    const updatedWorkouts = workouts.filter((w) => w.id !== id);
+    setWorkouts(updatedWorkouts);
+    cacheData('workouts_history', updatedWorkouts).catch(console.error);
+
+    if (navigator.onLine) {
+      const { error } = await supabase.from('workouts').delete().eq('id', id);
+      if (error) {
+        console.error('Error deleting workout:', error);
+        // Rollback if needed
+        setWorkouts(workouts);
+        cacheData('workouts_history', workouts).catch(console.error);
       } else {
-        // Offline Sync Queue
-        import('../lib/offlineSync').then(({ queueSyncAction }) => {
-          queueSyncAction('delete', 'workouts', { id });
-          if (onChanged) onChanged();
-        });
+        if (onChanged) onChanged();
       }
+    } else {
+      // Offline Sync Queue
+      import('../lib/offlineSync').then(({ queueSyncAction }) => {
+        queueSyncAction('delete', 'workouts', { id });
+        if (onChanged) onChanged();
+      });
     }
   };
+
 
   const filteredWorkouts = workouts.filter(workout => {
     if (!searchQuery) return true;
@@ -137,7 +152,7 @@ export default function HistoryLog({ refreshKey, onChanged, onRepeatWorkout }) {
                     </div>
                   </div>
                   
-                  <div className="flex gap-2 shrink-0">
+                  <div className="flex gap-2 shrink-0 items-center">
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onRepeatWorkout?.(workout); }}
@@ -146,14 +161,32 @@ export default function HistoryLog({ refreshKey, onChanged, onRepeatWorkout }) {
                     >
                       <RotateCcw size={16} />
                     </button>
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); handleDelete(workout.id); }}
-                      className="grid h-10 w-10 place-items-center rounded-lg bg-card-elevated text-text-muted transition active:scale-95 hover:bg-quiet-red/10 hover:text-quiet-red"
-                      aria-label="Delete workout"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    {deletingWorkoutId === workout.id ? (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <CountdownAction
+                          label="Deleting"
+                          countdown={deleteCountdown}
+                          onCancel={() => {
+                            setDeletingWorkoutId('');
+                            setDeleteCountdown(0);
+                          }}
+                          compact
+                        />
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeletingWorkoutId(workout.id);
+                          setDeleteCountdown(3);
+                        }}
+                        className="grid h-10 w-10 place-items-center rounded-lg bg-card-elevated text-text-muted transition active:scale-95 hover:bg-white/10 hover:text-text-main"
+                        aria-label="Delete workout"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
                   </div>
                 </div>
 

@@ -3,6 +3,7 @@ import { X, Send, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { playTapSound, playSuccessSound } from '../lib/sounds';
 import { blockUser, getBlockStateBetweenUsers, unblockUser } from '../lib/userBlocks';
+import CountdownAction from './CountdownAction';
 
 const MESSAGE_PHOTO_EXPIRY_MS = 48 * 60 * 60 * 1000;
 const MAX_MESSAGE_PHOTO_SIZE_BYTES = 500 * 1024;
@@ -103,6 +104,9 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
     hasBlock: false,
   });
   const [blockActionLoading, setBlockActionLoading] = useState(false);
+  const [pendingBlockAction, setPendingBlockAction] = useState('');
+  const [blockCountdown, setBlockCountdown] = useState(0);
+  const [blockActionMessage, setBlockActionMessage] = useState('');
   const messagesEndRef = useRef(null);
   
   // Get current user ID
@@ -174,17 +178,26 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
     };
   }, [isOpen, conversation?.id, currentUserId, loadBlockState]);
 
+  useEffect(() => {
+    let timer;
+
+    if (pendingBlockAction && blockCountdown > 0) {
+      timer = setTimeout(() => setBlockCountdown((count) => count - 1), 1000);
+    } else if (pendingBlockAction && blockCountdown === 0) {
+      handleToggleBlock();
+    }
+
+    return () => clearTimeout(timer);
+  }, [pendingBlockAction, blockCountdown]);
+
   const handleToggleBlock = async () => {
     if (!currentUserId || !otherUser?.id || blockState.blockedMe) return;
+    if (!pendingBlockAction) return;
 
-    const shouldBlock = !blockState.blockedByMe;
-    const confirmMessage = shouldBlock
-      ? `Block ${otherUser.email?.split('@')[0] || 'this user'}? You will not be able to send messages until you unblock them.`
-      : `Unblock ${otherUser.email?.split('@')[0] || 'this user'}?`;
-
-    if (!window.confirm(confirmMessage)) return;
+    const shouldBlock = pendingBlockAction === 'block';
 
     setBlockActionLoading(true);
+    setBlockActionMessage('');
     try {
       if (shouldBlock) {
         await blockUser(currentUserId, otherUser.id);
@@ -193,6 +206,7 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
           blockedMe: false,
           hasBlock: true,
         });
+        setBlockActionMessage('User blocked.');
       } else {
         await unblockUser(currentUserId, otherUser.id);
         setBlockState({
@@ -200,11 +214,14 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
           blockedMe: false,
           hasBlock: false,
         });
+        setBlockActionMessage('User unblocked.');
       }
     } catch (err) {
       console.error('Error updating block state:', err);
-      alert(`Could not ${shouldBlock ? 'block' : 'unblock'} this user.`);
+      setBlockActionMessage(`Could not ${shouldBlock ? 'block' : 'unblock'} this user.`);
     } finally {
+      setPendingBlockAction('');
+      setBlockCountdown(0);
       setBlockActionLoading(false);
     }
   };
@@ -379,22 +396,43 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
           </div>
         </div>
         {otherUser?.id && !blockState.blockedMe && (
-          <button
-            onClick={handleToggleBlock}
-            disabled={blockActionLoading}
-            className={`rounded-xl px-3 py-2 text-xs font-bold transition active:scale-95 disabled:opacity-50 ${
-              blockState.blockedByMe
-                ? 'bg-accent-lime text-app-bg'
-                : 'bg-card-elevated text-text-main'
-            }`}
-          >
-            {blockState.blockedByMe ? 'Unblock' : 'Block'}
-          </button>
+          pendingBlockAction ? (
+            <CountdownAction
+              label={pendingBlockAction === 'block' ? 'Blocking' : 'Unblocking'}
+              countdown={blockCountdown}
+              onCancel={() => {
+                setPendingBlockAction('');
+                setBlockCountdown(0);
+              }}
+              compact
+            />
+          ) : (
+            <button
+              onClick={() => {
+                setPendingBlockAction(blockState.blockedByMe ? 'unblock' : 'block');
+                setBlockCountdown(3);
+                setBlockActionMessage('');
+              }}
+              disabled={blockActionLoading}
+              className={`rounded-xl px-3 py-2 text-xs font-bold transition active:scale-95 disabled:opacity-50 ${
+                blockState.blockedByMe
+                  ? 'bg-accent-lime text-app-bg'
+                  : 'bg-card-elevated text-text-main'
+              }`}
+            >
+              {blockState.blockedByMe ? 'Unblock' : 'Block'}
+            </button>
+          )
         )}
       </div>
 
       {/* Messages List */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {blockActionMessage && (
+          <div className="rounded-2xl border border-glass-border bg-card-elevated px-4 py-3 text-sm text-text-muted">
+            {blockActionMessage}
+          </div>
+        )}
         {blockState.blockedByMe && (
           <div className="rounded-2xl border border-glass-border bg-card-elevated px-4 py-3 text-sm text-text-muted">
             You blocked this user. Unblock them to send messages again.
