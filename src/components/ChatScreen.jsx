@@ -10,7 +10,7 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
   const [currentUserId, setCurrentUserId] = useState(null);
   const messagesEndRef = useRef(null);
   
-  // Get current user ID on mount
+  // Get current user ID
   useEffect(() => {
     const getCurrentUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -19,81 +19,63 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
     getCurrentUser();
   }, []);
 
-  // Scroll to bottom
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
+  // Scroll to bottom when messages change
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  // Load messages
-  useEffect(() => {
-    if (isOpen && conversation) {
-      loadMessages();
-
-      // Subscribe to new messages
-      const channel = supabase
-        .channel(`messages:${conversation.id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'messages',
-            filter: `conversation_id=eq.${conversation.id}`
-          },
-          (payload) => {
-            setMessages(prev => [...prev, payload.new]);
-          }
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [isOpen, conversation]);
-
-  const loadMessages = async () => {
-    if (!conversation?.id) return;
-    try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('conversation_id', conversation.id)
-        .order('created_at', { ascending: true });
-
-      if (!error) setMessages(data || []);
-    } catch (err) {
-      console.error('Error loading messages:', err);
-    }
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Setup realtime subscription for new messages
+  // Load initial messages and set up realtime subscription
   useEffect(() => {
-    if (!conversation?.id) return;
+    if (!isOpen || !conversation?.id) return;
 
-    const subscription = supabase
-      .channel(`conversation:${conversation.id}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages',
-        filter: `conversation_id=eq.${conversation.id}`,
-      }, (payload) => {
-        console.log('New message received!', payload);
-        setMessages(prev => [...prev, payload.new]);
-      })
+    // 1. Load initial messages
+    const loadInitialMessages = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('messages')
+          .select('*')
+          .eq('conversation_id', conversation.id)
+          .order('created_at', { ascending: true });
+
+        if (!error) setMessages(data || []);
+      } catch (err) {
+        console.error('Error loading messages:', err);
+      }
+    };
+    loadInitialMessages();
+
+    // 2. Set up realtime subscription
+    const channel = supabase
+      .channel(`chat:${conversation.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${conversation.id}`
+        },
+        (payload) => {
+          console.log('New message:', payload.new);
+          setMessages(prev => {
+            // Avoid duplicates
+            const exists = prev.some(m => m.id === payload.new.id);
+            return exists ? prev : [...prev, payload.new];
+          });
+        }
+      )
       .subscribe();
 
     return () => {
-      subscription.unsubscribe();
+      channel.unsubscribe();
     };
-  }, [conversation?.id]);
+  }, [isOpen, conversation?.id]);
 
-  // Upload photo
+  // Handle photo upload
   const handlePhotoUpload = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -114,7 +96,6 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
         .from('message-attachments')
         .getPublicUrl(filePath);
 
-      // Send message with photo
       await sendMessage(null, data.publicUrl);
     } catch (err) {
       console.error('Error uploading photo:', err);
@@ -125,18 +106,16 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
 
   // Send message
   const sendMessage = async (content = newMessage, photoUrl = null) => {
-    if (!content && !photoUrl) return;
+    if ((!content?.trim() && !photoUrl) || !currentUserId) return;
 
     setSending(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-
       const { error } = await supabase
         .from('messages')
         .insert({
           conversation_id: conversation.id,
-          sender_id: user.id,
-          content: content,
+          sender_id: currentUserId,
+          content: content?.trim() || null,
           photo_url: photoUrl
         });
 
@@ -144,7 +123,7 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
         setNewMessage('');
         playSuccessSound();
 
-        // Update conversation's updated_at
+        // Update conversation timestamp
         await supabase
           .from('conversations')
           .update({ updated_at: new Date().toISOString() })
@@ -158,8 +137,6 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
   };
 
   if (!isOpen) return null;
-
-
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-app-bg">
@@ -207,7 +184,7 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
                 {msg.photo_url && (
                   <img
                     src={msg.photo_url}
-                    alt="Message attachment"
+                    alt="Attachment"
                     className="mt-2 rounded-xl max-h-64 w-full object-cover"
                   />
                 )}
