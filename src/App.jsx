@@ -209,27 +209,50 @@ export default function App() {
   // Chat handlers
   const handleStartChat = async (user) => {
     try {
-      // Check if there's already a conversation with this user
-      const { data: existingConversations, error: convError } = await supabase
+      console.log('Starting chat with user:', user);
+      
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) {
+        console.error('No current user found!');
+        return;
+      }
+      
+      // First, get all conversations for the current user
+      const { data: userConversations, error: userConvError } = await supabase
         .from('conversations')
         .select(`
-          *,
-          conversation_participants!inner (
+          id,
+          conversation_participants (
             user_id
           )
-        `)
-        .contains('conversation_participants', [{ user_id: user.id }]);
-
+        `);
+        
+      if (userConvError) throw userConvError;
+      
+      console.log('Current user conversations:', userConversations);
+      
+      // Find existing conversation with the target user
+      let existingConversation = null;
+      for (const conv of userConversations || []) {
+        const participantIds = conv.conversation_participants?.map(p => p.user_id) || [];
+        if (participantIds.includes(currentUser.id) && participantIds.includes(user.id)) {
+          existingConversation = conv;
+          break;
+        }
+      }
+      
       let conversationId;
-
-      if (existingConversations?.length > 0) {
-        conversationId = existingConversations[0].id;
-        setSelectedConversation(existingConversations[0]);
+      
+      if (existingConversation) {
+        console.log('Found existing conversation:', existingConversation);
+        conversationId = existingConversation.id;
+        setSelectedConversation(existingConversation);
       } else {
+        console.log('Creating new conversation...');
         // Create new conversation
         const { data: newConv, error: createError } = await supabase
           .from('conversations')
-          .insert({})
+          .insert({ created_by: currentUser.id })
           .select('*')
           .single();
 
@@ -238,26 +261,30 @@ export default function App() {
         setSelectedConversation(newConv);
 
         // Add both participants
-        const { data: { user: currentUser } } = await supabase.auth.getUser();
-        await supabase
+        console.log('Adding participants...');
+        const { error: insertError } = await supabase
           .from('conversation_participants')
           .insert([
             { conversation_id: conversationId, user_id: currentUser.id },
             { conversation_id: conversationId, user_id: user.id }
           ]);
+          
+        if (insertError) throw insertError;
       }
 
       setSelectedOtherUser(user);
       setShowChatScreen(true);
     } catch (err) {
       console.error('Error starting chat:', err);
+      alert('Error starting chat: ' + err.message);
     }
   };
 
-  const handleSelectConversation = (conv) => {
+  const handleSelectConversation = async (conv) => {
     // Get other user
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
     const otherParticipants = conv.conversation_participants?.filter(
-      (p) => p.profiles?.id !== (supabase.auth.getUser()).data.user?.id
+      (p) => p.user_id !== currentUser?.id
     );
     const otherUser = otherParticipants?.[0]?.profiles;
 

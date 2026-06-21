@@ -7,7 +7,17 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState(null);
   const messagesEndRef = useRef(null);
+  
+  // Get current user ID on mount
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id);
+    };
+    getCurrentUser();
+  }, []);
 
   // Scroll to bottom
   const scrollToBottom = () => {
@@ -128,7 +138,7 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
 
   if (!isOpen) return null;
 
-  const currentUserId = (supabase.auth.getUser()).data.user?.id;
+
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-app-bg">

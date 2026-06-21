@@ -16,6 +16,8 @@ export default function ConversationList({ isOpen, onClose, onSelectConversation
   const loadConversations = async () => {
     setLoading(true);
     try {
+      console.log('Loading conversations...');
+      
       const { data, error } = await supabase
         .from('conversations')
         .select(`
@@ -26,17 +28,15 @@ export default function ConversationList({ isOpen, onClose, onSelectConversation
               id,
               email
             )
-          ),
-          messages (
-            content,
-            created_at,
-            sender_id
           )
         `)
         .order('updated_at', { ascending: false });
 
       if (!error) {
+        console.log('Conversations loaded:', data);
         setConversations(data || []);
+      } else {
+        console.error('Error loading conversations:', error);
       }
     } catch (err) {
       console.error('Error loading conversations:', err);
@@ -84,11 +84,11 @@ export default function ConversationList({ isOpen, onClose, onSelectConversation
           ) : (
             conversations.map((conv) => {
               // Get other participant
+              const currentUserId = (supabase.auth.getUser()).data.user?.id;
               const otherParticipants = conv.conversation_participants?.filter(
-                (p) => p.profiles?.id !== (supabase.auth.getUser()).data.user?.id
+                (p) => p.user_id !== currentUserId
               );
               const otherUser = otherParticipants?.[0]?.profiles;
-              const lastMessage = conv.messages?.[conv.messages.length - 1];
 
               return (
                 <div
@@ -107,7 +107,7 @@ export default function ConversationList({ isOpen, onClose, onSelectConversation
                       {otherUser?.email || 'Unknown User'}
                     </p>
                     <p className="text-xs text-text-muted truncate">
-                      {lastMessage?.content || 'No messages yet'}
+                      Tap to open chat
                     </p>
                   </div>
                 </div>
