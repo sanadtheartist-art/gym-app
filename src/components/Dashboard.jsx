@@ -215,7 +215,7 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
     return count;
   }, [activeDateKeys]);
 
-  // --- Weekly Workouts This Week ---
+  // --- Weekly Active Days ---
   const weeklyCount = useMemo(() => {
     const now = new Date();
     const startOfWeek = new Date(now);
@@ -227,10 +227,16 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(startOfWeek.getDate() + 7);
 
-    return workouts.filter((w) => {
-      const timestamp = new Date(w.timestamp);
-      return !Number.isNaN(timestamp.getTime()) && timestamp >= startOfWeek && timestamp < endOfWeek;
-    }).length;
+    const activeDays = new Set(
+      workouts
+        .filter((w) => {
+          const timestamp = new Date(w.timestamp);
+          return !Number.isNaN(timestamp.getTime()) && timestamp >= startOfWeek && timestamp < endOfWeek;
+        })
+        .map((w) => toDateKey(w.timestamp))
+    );
+
+    return activeDays.size;
   }, [workouts]);
 
   // --- Muscle Recency ---
@@ -384,14 +390,14 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
                 }}
                 className="w-full rounded-xl bg-app-bg px-3 py-2 text-center text-lg font-bold text-text-main outline-none"
               />
-              <p className="text-center text-[10px] text-text-muted mt-1">workouts/week goal</p>
+              <p className="text-center text-[10px] text-text-muted mt-1">active days/week goal</p>
             </div>
           ) : (
             <div className="mt-2 flex items-center gap-3">
               <WeeklyGoalRing done={weeklyCount} goal={weeklyGoal} />
               <div>
                 <p className="text-xl font-extrabold text-text-main number-animate">{weeklyCount}</p>
-                <p className="text-[10px] text-text-muted">of {weeklyGoal} goal</p>
+                <p className="text-[10px] text-text-muted">of {weeklyGoal} active days</p>
               </div>
             </div>
           )}
