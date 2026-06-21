@@ -57,6 +57,7 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
   }, [isOpen, conversation]);
 
   const loadMessages = async () => {
+    if (!conversation?.id) return;
     try {
       const { data, error } = await supabase
         .from('messages')
@@ -64,13 +65,33 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
         .eq('conversation_id', conversation.id)
         .order('created_at', { ascending: true });
 
-      if (!error) {
-        setMessages(data || []);
-      }
+      if (!error) setMessages(data || []);
     } catch (err) {
       console.error('Error loading messages:', err);
     }
   };
+
+  // Setup realtime subscription for new messages
+  useEffect(() => {
+    if (!conversation?.id) return;
+
+    const subscription = supabase
+      .channel(`conversation:${conversation.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages',
+        filter: `conversation_id=eq.${conversation.id}`,
+      }, (payload) => {
+        console.log('New message received!', payload);
+        setMessages(prev => [...prev, payload.new]);
+      })
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [conversation?.id]);
 
   // Upload photo
   const handlePhotoUpload = async (event) => {

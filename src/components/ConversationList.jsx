@@ -87,6 +87,24 @@ export default function ConversationList({ isOpen, onClose, onSelectConversation
     setLoading(false);
   };
 
+  // Realtime for new conversations
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const subscription = supabase
+      .channel('new-conversations')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'conversation_participants',
+      }, () => {
+        loadConversations();
+      })
+      .subscribe();
+      
+    return () => subscription.unsubscribe();
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
