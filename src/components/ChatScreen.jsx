@@ -28,6 +28,21 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Mark messages as read when chat is opened
+  const markMessagesAsRead = async () => {
+    if (!currentUserId || !conversation?.id) return;
+    try {
+      await supabase
+        .from('messages')
+        .update({ read_at: new Date().toISOString() })
+        .eq('conversation_id', conversation.id)
+        .neq('sender_id', currentUserId)
+        .is('read_at', null);
+    } catch (err) {
+      console.error('Error marking messages as read:', err);
+    }
+  };
+
   // Load initial messages and set up realtime subscription
   useEffect(() => {
     if (!isOpen || !conversation?.id) return;
@@ -41,7 +56,10 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
           .eq('conversation_id', conversation.id)
           .order('created_at', { ascending: true });
 
-        if (!error) setMessages(data || []);
+        if (!error) {
+          setMessages(data || []);
+          markMessagesAsRead();
+        }
       } catch (err) {
         console.error('Error loading messages:', err);
       }
@@ -59,13 +77,21 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
           table: 'messages',
           filter: `conversation_id=eq.${conversation.id}`
         },
-        (payload) => {
+        async (payload) => {
           console.log('New message:', payload.new);
           setMessages(prev => {
             // Avoid duplicates
             const exists = prev.some(m => m.id === payload.new.id);
             return exists ? prev : [...prev, payload.new];
           });
+          
+          // Mark as read if it's from someone else
+          if (payload.new.sender_id !== currentUserId) {
+            await supabase
+              .from('messages')
+              .update({ read_at: new Date().toISOString() })
+              .eq('id', payload.new.id);
+          }
         }
       )
       .subscribe();
