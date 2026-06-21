@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChartNoAxesColumnIncreasing, Flame, Target, TrendingUp, Zap } from 'lucide-react';
 import { loadWorkouts } from '../lib/offlineSync';
+import { MUSCLE_GROUP_MAPPING } from '../data/muscles';
 
 const toDateKey = (value) => {
   const date = new Date(value);
@@ -51,6 +52,40 @@ const MUSCLE_GROUPS = [
   'Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps',
   'Legs', 'Glutes', 'Core', 'Calves'
 ];
+
+const MUSCLE_ALIAS_LOOKUP = new Map(
+  Object.entries(MUSCLE_GROUP_MAPPING).flatMap(([group, aliases]) =>
+    aliases.map((alias) => [alias.toLowerCase(), group])
+  )
+);
+
+const normalizeMuscleValue = (value) => {
+  const raw = (value || '').trim().toLowerCase();
+  if (!raw) return null;
+
+  if (MUSCLE_ALIAS_LOOKUP.has(raw)) {
+    return MUSCLE_ALIAS_LOOKUP.get(raw);
+  }
+
+  for (const [alias, group] of MUSCLE_ALIAS_LOOKUP.entries()) {
+    if (raw.includes(alias) || alias.includes(raw)) {
+      return group;
+    }
+  }
+
+  return raw;
+};
+
+const getWorkoutMuscleGroups = (workout) => {
+  if (!workout?.muscle_group) return [];
+
+  return [...new Set(
+    workout.muscle_group
+      .split(',')
+      .map((item) => normalizeMuscleValue(item))
+      .filter(Boolean)
+  )];
+};
 
 function muscleColor(daysSince) {
   if (daysSince === null) return { bg: 'bg-card-bg', text: 'text-text-muted', dot: 'bg-text-muted/30' };
@@ -184,9 +219,18 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
   const weeklyCount = useMemo(() => {
     const now = new Date();
     const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay());
+    const day = now.getDay();
+    const diffToMonday = (day + 6) % 7;
+    startOfWeek.setDate(now.getDate() - diffToMonday);
     startOfWeek.setHours(0, 0, 0, 0);
-    return workouts.filter(w => new Date(w.timestamp) >= startOfWeek).length;
+
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 7);
+
+    return workouts.filter((w) => {
+      const timestamp = new Date(w.timestamp);
+      return !Number.isNaN(timestamp.getTime()) && timestamp >= startOfWeek && timestamp < endOfWeek;
+    }).length;
   }, [workouts]);
 
   // --- Muscle Recency ---
@@ -194,12 +238,11 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
     const now = new Date();
     const result = {};
 
-    MUSCLE_GROUPS.forEach(muscle => {
-      const lastWorkout = workouts.find(w =>
-        w.muscle_group && w.muscle_group.split(',').map(m => m.trim()).some(m =>
-          m.toLowerCase().includes(muscle.toLowerCase()) || muscle.toLowerCase().includes(m.toLowerCase())
-        )
-      );
+    MUSCLE_GROUPS.forEach((muscle) => {
+      const lastWorkout = [...workouts]
+        .filter((w) => getWorkoutMuscleGroups(w).includes(muscle))
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+
       if (!lastWorkout) {
         result[muscle] = null;
       } else {
@@ -233,14 +276,15 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 30);
     const counts = {};
+
     workouts
-      .filter(w => new Date(w.timestamp) >= cutoff && w.muscle_group)
-      .forEach(w => {
-        w.muscle_group.split(',').forEach(m => {
-          const muscle = m.trim();
-          if (muscle) counts[muscle] = (counts[muscle] || 0) + 1;
+      .filter((w) => new Date(w.timestamp) >= cutoff && w.muscle_group)
+      .forEach((w) => {
+        getWorkoutMuscleGroups(w).forEach((muscle) => {
+          counts[muscle] = (counts[muscle] || 0) + 1;
         });
       });
+
     const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
     return sorted[0]?.[0] || '—';
   }, [workouts]);
