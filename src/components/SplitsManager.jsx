@@ -307,16 +307,15 @@ export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, 
   const loadTemplates = async () => {
     setStatus('Loading templates...');
     const templates = [
-      { name: 'Push Day (Hypertrophy)', exercises: ['Flat Barbell Bench Press', 'Incline Dumbbell Press', 'Seated Dumbbell Shoulder Press', 'Cable Lateral Raises', 'Dips', 'Tricep Rope Pushdowns', 'Overhead Cable Tricep Extension'] },
-      { name: 'Pull Day (Hypertrophy)', exercises: ['Pull-ups', 'Barbell Rows', 'Seated Cable Rows', 'Face Pulls', 'Incline Dumbbell Curls', 'Hammer Curls', 'Rear Delt Flyes'] },
-      { name: 'Leg Day (Hypertrophy)', exercises: ['Barbell Back Squats', 'Romanian Deadlifts', 'Bulgarian Split Squats', 'Leg Press', 'Lying Leg Curls', 'Standing Calf Raises', 'Seated Calf Raises'] },
-      { name: 'Upper Body (Strength)', exercises: ['Barbell Bench Press', 'Weighted Pull-ups', 'Overhead Press', 'Barbell Rows', 'Close-Grip Bench Press', 'Barbell Curls'] },
-      { name: 'Lower Body (Strength)', exercises: ['Barbell Back Squats', 'Conventional Deadlifts', 'Front Squats', 'Walking Lunges', 'Hanging Leg Raises', 'Standing Calf Raises'] },
-      { name: 'Full Body A (Beginner - Squat Focus)', exercises: ['Barbell Squats', 'Bench Press', 'Bent-Over Rows', 'Overhead Press', 'Bicep Curls', 'Plank'] },
-      { name: 'Full Body B (Beginner - Deadlift Focus)', exercises: ['Deadlifts', 'Incline Bench Press', 'Lat Pulldowns', 'Dumbbell Lunges', 'Lateral Raises', 'Cable Crunches'] },
-      { name: 'Chest & Triceps (Bro Split)', exercises: ['Flat Barbell Bench Press', 'Incline Dumbbell Press', 'Cable Crossovers', 'Dumbbell Flyes', 'Tricep Dips', 'Overhead Tricep Extension', 'Tricep Pushdowns'] },
-      { name: 'Back & Biceps (Bro Split)', exercises: ['Deadlifts', 'Pull-ups', 'T-Bar Rows', 'Single-Arm Dumbbell Row', 'Barbell Curls', 'Preacher Curls', 'Hammer Curls'] },
-      { name: 'Glutes & Hamstrings (Posterior Chain Focus)', exercises: ['Romanian Deadlifts', 'Hip Thrusts', 'Bulgarian Split Squats', 'Cable Pull-Throughs', 'Lying Leg Curls', 'Glute Kickbacks', 'Standing Calf Raises'] }
+      { name: 'Push (Science-Based)', exercises: ['Incline Dumbbell Press', 'Flat Barbell Bench Press', 'Seated Dumbbell Shoulder Press', 'Cable Lateral Raises', 'Tricep Rope Pushdowns', 'Overhead Cable Extension'] },
+      { name: 'Pull (Science-Based)', exercises: ['Pull-ups', 'Chest-Supported Row', 'Single-Arm Dumbbell Row', 'Face Pulls', 'Incline Dumbbell Curls', 'Hammer Curls'] },
+      { name: 'Legs (Science-Based)', exercises: ['Barbell Back Squats', 'Romanian Deadlifts (RDLs)', 'Bulgarian Split Squats', 'Lying Leg Curls', 'Standing Calf Raises', 'Seated Calf Raises'] },
+      { name: 'Upper (Strength/Hypertrophy)', exercises: ['Bench Press', 'Barbell Rows', 'Overhead Press', 'Lat Pulldowns', 'Lateral Raises', 'Bicep Curls', 'Skullcrushers'] },
+      { name: 'Lower (Strength/Hypertrophy)', exercises: ['Squats', 'Deadlifts', 'Leg Press', 'Leg Extensions', 'Seated Leg Curls', 'Calf Raises'] },
+      { name: 'Full Body A (Squat Focus)', exercises: ['Barbell Squats', 'Bench Press', 'Barbell Rows', 'Lateral Raises', 'Tricep Pushdowns', 'Bicep Curls'] },
+      { name: 'Full Body B (Deadlift Focus)', exercises: ['Deadlifts', 'Overhead Press', 'Lat Pulldowns', 'Leg Curls', 'Hammer Curls', 'Overhead Tricep Extension'] },
+      { name: 'Arnold: Chest & Back', exercises: ['Bench Press', 'Lat Pulldowns', 'Incline Dumbbell Press', 'T-Bar Rows', 'Dumbbell Pullovers', 'Cable Crossovers'] },
+      { name: 'Arnold: Shoulders & Arms', exercises: ['Seated Dumbbell Press', 'Lateral Raises', 'Barbell Curls', 'Skullcrushers', 'Preacher Curls', 'Tricep Pushdowns'] }
     ];
 
     const { data: existingSplits } = await supabase.from('splits').select('name');
