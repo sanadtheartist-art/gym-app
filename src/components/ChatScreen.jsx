@@ -5,6 +5,92 @@ import { playTapSound, playSuccessSound } from '../lib/sounds';
 import { blockUser, getBlockStateBetweenUsers, unblockUser } from '../lib/userBlocks';
 
 const MESSAGE_PHOTO_EXPIRY_MS = 48 * 60 * 60 * 1000;
+const MAX_MESSAGE_PHOTO_SIZE_BYTES = 500 * 1024;
+const MAX_MESSAGE_PHOTO_DIMENSION = 1600;
+
+const readImageFile = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(reader.result);
+  reader.onerror = () => reject(new Error('Failed to read image file.'));
+  reader.readAsDataURL(file);
+});
+
+const loadImageElement = (src) => new Promise((resolve, reject) => {
+  const image = new Image();
+  image.onload = () => resolve(image);
+  image.onerror = () => reject(new Error('Failed to load image.'));
+  image.src = src;
+});
+
+const canvasToBlob = (canvas, type, quality) => new Promise((resolve, reject) => {
+  canvas.toBlob((blob) => {
+    if (blob) {
+      resolve(blob);
+      return;
+    }
+
+    reject(new Error('Failed to compress image.'));
+  }, type, quality);
+});
+
+async function compressMessagePhoto(file) {
+  if (file.size <= MAX_MESSAGE_PHOTO_SIZE_BYTES) {
+    return file;
+  }
+
+  const imageSrc = await readImageFile(file);
+  const image = await loadImageElement(imageSrc);
+
+  let width = image.width;
+  let height = image.height;
+  const largestSide = Math.max(width, height);
+
+  if (largestSide > MAX_MESSAGE_PHOTO_DIMENSION) {
+    const scale = MAX_MESSAGE_PHOTO_DIMENSION / largestSide;
+    width = Math.round(width * scale);
+    height = Math.round(height * scale);
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+
+  const context = canvas.getContext('2d');
+  if (!context) {
+    throw new Error('Could not prepare image compression.');
+  }
+
+  context.drawImage(image, 0, 0, width, height);
+
+  let bestBlob = await canvasToBlob(canvas, 'image/jpeg', 0.85);
+
+  for (let quality = 0.75; quality >= 0.35 && bestBlob.size > MAX_MESSAGE_PHOTO_SIZE_BYTES; quality -= 0.1) {
+    bestBlob = await canvasToBlob(canvas, 'image/jpeg', quality);
+  }
+
+  while (bestBlob.size > MAX_MESSAGE_PHOTO_SIZE_BYTES && canvas.width > 400 && canvas.height > 400) {
+    canvas.width = Math.round(canvas.width * 0.85);
+    canvas.height = Math.round(canvas.height * 0.85);
+
+    const resizedContext = canvas.getContext('2d');
+    if (!resizedContext) {
+      break;
+    }
+
+    resizedContext.drawImage(image, 0, 0, canvas.width, canvas.height);
+    bestBlob = await canvasToBlob(canvas, 'image/jpeg', 0.7);
+  }
+
+  if (bestBlob.size > MAX_MESSAGE_PHOTO_SIZE_BYTES) {
+    throw new Error('Could not compress image below 500KB.');
+  }
+
+  return new File(
+    [bestBlob],
+    `${file.name.replace(/\.[^.]+$/, '') || 'message-photo'}.jpg`,
+    { type: 'image/jpeg' }
+  );
+}
 
 export default function ChatScreen({ isOpen, onClose, conversation, otherUser }) {
   const [messages, setMessages] = useState([]);
@@ -204,13 +290,14 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
 
     setSending(true);
     try {
-      const fileExt = file.name.split('.').pop();
+      const compressedFile = await compressMessagePhoto(file);
+      const fileExt = compressedFile.name.split('.').pop();
       const fileName = `${crypto.randomUUID()}.${fileExt}`;
       const filePath = `${conversation.id}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('message-attachments')
-        .upload(filePath, file);
+        .upload(filePath, compressedFile);
 
       if (uploadError) throw uploadError;
 
@@ -221,7 +308,9 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
       await sendMessage(null, data.publicUrl);
     } catch (err) {
       console.error('Error uploading photo:', err);
+      alert(err.message || 'Could not upload photo.');
     } finally {
+      event.target.value = '';
       setSending(false);
     }
   };
