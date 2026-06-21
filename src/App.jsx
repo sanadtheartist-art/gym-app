@@ -311,7 +311,7 @@ export default function App() {
     const otherParticipants = conv.conversation_participants?.filter(
       (p) => p.user_id !== currentUser?.id
     );
-    const otherUser = otherParticipants?.[0]?.profiles;
+    const otherUser = conv.other_user || otherParticipants?.[0]?.profiles || null;
 
     setSelectedConversation(conv);
     setSelectedOtherUser(otherUser);

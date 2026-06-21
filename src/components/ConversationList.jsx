@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { X, MessageSquare, Plus, UserPlus, Circle } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { X, UserPlus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { playTapSound } from '../lib/sounds';
 
@@ -23,98 +23,132 @@ export default function ConversationList({ isOpen, onClose, onSelectConversation
     getUser();
   }, []);
 
+  const getConversationActivityTime = (conversation) => {
+    return (
+      conversation.last_message?.created_at ||
+      conversation.updated_at ||
+      conversation.created_at ||
+      ''
+    );
+  };
+
   // Load conversations
-  const loadConversations = async () => {
+  const loadConversations = useCallback(async () => {
     if (!currentUserId) return;
-    
+
     setLoading(true);
     try {
-      console.log('Loading conversations...');
-      
-      // Step 1: Get all conversation IDs where the current user is a participant
       const { data: participantEntries, error: participantError } = await supabase
         .from('conversation_participants')
         .select('conversation_id')
         .eq('user_id', currentUserId);
-        
+
       if (participantError) throw participantError;
-      
-      console.log('Participant entries:', participantEntries);
-      
+
       if (!participantEntries || participantEntries.length === 0) {
         setConversations([]);
-        setLoading(false);
         return;
       }
-      
-      const conversationIds = participantEntries.map(p => p.conversation_id);
-      
-      // Step 2: Get all conversations with those IDs
-      const { data: conversations, error: convError } = await supabase
-        .from('conversations')
-        .select('*')
-        .in('id', conversationIds)
-        .order('updated_at', { ascending: false });
-        
-      if (convError) throw convError;
-      
-      console.log('Conversations:', conversations);
-      
-      // Step 3: For each conversation, get participants + last message
-      const conversationsWithDetails = [];
-      for (const conv of conversations || []) {
-        // Get participants
-        const { data: participants, error: partError } = await supabase
-          .from('conversation_participants')
-          .select(`
-            user_id,
-            profiles (
-              id,
-              email
-            )
-          `)
-          .eq('conversation_id', conv.id);
-          
-        if (partError) {
-          console.error('Error getting participants for conv:', conv.id, partError);
-          continue;
-        }
 
-        // Get last message
-        const { data: lastMessage, error: msgError } = await supabase
-          .from('messages')
+      const conversationIds = [...new Set(participantEntries.map((entry) => entry.conversation_id))];
+
+      const [
+        { data: conversationRows, error: convError },
+        { data: participantRows, error: partError },
+        { data: messageRows, error: msgError }
+      ] = await Promise.all([
+        supabase
+          .from('conversations')
           .select('*')
-          .eq('conversation_id', conv.id)
+          .in('id', conversationIds),
+        supabase
+          .from('conversation_participants')
+          .select('conversation_id, user_id')
+          .in('conversation_id', conversationIds),
+        supabase
+          .from('messages')
+          .select('id, conversation_id, sender_id, content, photo_url, read_at, created_at')
+          .in('conversation_id', conversationIds)
           .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
-          
-        if (msgError && msgError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
-          console.error('Error getting last message for conv:', conv.id, msgError);
+      ]);
+
+      if (convError) throw convError;
+      if (partError) throw partError;
+      if (msgError) throw msgError;
+
+      const participantsByConversation = new Map();
+      const otherUserIds = new Set();
+
+      for (const participant of participantRows || []) {
+        const existingParticipants = participantsByConversation.get(participant.conversation_id) || [];
+        existingParticipants.push(participant);
+        participantsByConversation.set(participant.conversation_id, existingParticipants);
+
+        if (participant.user_id !== currentUserId) {
+          otherUserIds.add(participant.user_id);
+        }
+      }
+
+      const lastMessageByConversation = new Map();
+      for (const message of messageRows || []) {
+        if (!lastMessageByConversation.has(message.conversation_id)) {
+          lastMessageByConversation.set(message.conversation_id, message);
         }
 
-        conversationsWithDetails.push({
-          ...conv,
-          conversation_participants: participants,
-          last_message: lastMessage,
-          has_unread: lastMessage && lastMessage.sender_id !== currentUserId && !lastMessage.read_at
-        });
+        if (message.sender_id && message.sender_id !== currentUserId) {
+          otherUserIds.add(message.sender_id);
+        }
       }
-      
-      console.log('Conversations with details:', conversationsWithDetails);
+
+      let profilesById = new Map();
+      if (otherUserIds.size > 0) {
+        const { data: profileRows, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, email')
+          .in('id', [...otherUserIds]);
+
+        if (profileError) throw profileError;
+
+        profilesById = new Map((profileRows || []).map((profile) => [profile.id, profile]));
+      }
+
+      const conversationsWithDetails = (conversationRows || [])
+        .map((conversation) => {
+          const participants = participantsByConversation.get(conversation.id) || [];
+          const lastMessage = lastMessageByConversation.get(conversation.id) || null;
+
+          const otherParticipant = participants.find((participant) => participant.user_id !== currentUserId);
+          const fallbackUserId = lastMessage?.sender_id !== currentUserId ? lastMessage?.sender_id : null;
+          const otherUserId = otherParticipant?.user_id || fallbackUserId;
+
+          return {
+            ...conversation,
+            conversation_participants: participants.map((participant) => ({
+              ...participant,
+              profiles: participant.user_id === currentUserId ? null : profilesById.get(participant.user_id) || null
+            })),
+            last_message: lastMessage,
+            has_unread: Boolean(lastMessage && lastMessage.sender_id !== currentUserId && !lastMessage.read_at),
+            other_user: otherUserId ? profilesById.get(otherUserId) || null : null
+          };
+        })
+        .sort((a, b) => getConversationActivityTime(b).localeCompare(getConversationActivityTime(a)));
+
       setConversations(conversationsWithDetails);
     } catch (err) {
       console.error('Error loading conversations:', err);
+      setConversations([]);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  };
+  }, [currentUserId]);
 
   // Initial load when component opens
   useEffect(() => {
     if (isOpen && currentUserId) {
       loadConversations();
     }
-  }, [isOpen, currentUserId]);
+  }, [isOpen, currentUserId, loadConversations]);
 
   // Realtime for new conversations and new messages
   useEffect(() => {
@@ -148,7 +182,7 @@ export default function ConversationList({ isOpen, onClose, onSelectConversation
       participantSub.unsubscribe();
       messageSub.unsubscribe();
     };
-  }, [isOpen, currentUserId]);
+  }, [isOpen, currentUserId, loadConversations]);
 
   if (!isOpen) return null;
 
@@ -189,11 +223,7 @@ export default function ConversationList({ isOpen, onClose, onSelectConversation
             <div className="py-8 text-center text-text-muted">No conversations yet</div>
           ) : (
             conversations.map((conv) => {
-              // Get other participant
-              const otherParticipants = conv.conversation_participants?.filter(
-                (p) => p.user_id !== currentUserId
-              );
-              const otherUser = otherParticipants?.[0]?.profiles;
+              const otherUser = conv.other_user;
 
               return (
                 <div
