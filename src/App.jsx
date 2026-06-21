@@ -77,8 +77,6 @@ export default function App() {
       setAuthInitialized(true);
       if (session) {
         setShowWelcome(true);
-        // Run background media cleanup
-        cleanupOldMedia();
         // After welcome screen, check if user has seen privacy OR onboarding (treat as returning if so)
         setTimeout(() => {
           setShowWelcome(false);
@@ -111,6 +109,18 @@ export default function App() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!session) return undefined;
+
+    cleanupOldMedia();
+
+    const cleanupInterval = window.setInterval(() => {
+      cleanupOldMedia();
+    }, 60 * 60 * 1000);
+
+    return () => window.clearInterval(cleanupInterval);
+  }, [session]);
 
   const handleOpenInput = useCallback(() => {
     setRepeatWorkoutData(null);

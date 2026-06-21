@@ -3,6 +3,8 @@ import { X, Send, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { playTapSound, playSuccessSound } from '../lib/sounds';
 
+const MESSAGE_PHOTO_EXPIRY_MS = 48 * 60 * 60 * 1000;
+
 export default function ChatScreen({ isOpen, onClose, conversation, otherUser }) {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
@@ -26,6 +28,11 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const isPhotoExpired = (message) => {
+    if (!message?.photo_url || !message?.created_at) return false;
+    return Date.now() - new Date(message.created_at).getTime() >= MESSAGE_PHOTO_EXPIRY_MS;
   };
 
   // Mark messages as read when chat is opened
@@ -190,6 +197,8 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.map((msg) => {
           const isCurrentUser = msg.sender_id === currentUserId;
+          const photoExpired = isPhotoExpired(msg);
+
           return (
             <div
               key={msg.id}
@@ -207,12 +216,17 @@ export default function ChatScreen({ isOpen, onClose, conversation, otherUser })
                     {msg.content}
                   </p>
                 )}
-                {msg.photo_url && (
+                {msg.photo_url && !photoExpired && (
                   <img
                     src={msg.photo_url}
                     alt="Attachment"
                     className="mt-2 rounded-xl max-h-64 w-full object-cover"
                   />
+                )}
+                {msg.photo_url && photoExpired && (
+                  <p className="mt-2 text-xs opacity-70">
+                    Photo expired
+                  </p>
                 )}
                 <p className="mt-1 text-[10px] opacity-70">
                   {new Date(msg.created_at).toLocaleTimeString([], {
