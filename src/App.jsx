@@ -56,6 +56,9 @@ export default function App() {
   const [showChatScreen, setShowChatScreen] = useState(false);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [selectedOtherUser, setSelectedOtherUser] = useState(null);
+  const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
+
+  const currentUserId = session?.user?.id || null;
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('jexi_theme') || 'default';
@@ -121,6 +124,78 @@ export default function App() {
 
     return () => window.clearInterval(cleanupInterval);
   }, [session]);
+
+  const loadUnreadMessageState = useCallback(async () => {
+    if (!currentUserId) {
+      setHasUnreadMessages(false);
+      return;
+    }
+
+    try {
+      const { data: participantRows, error: participantError } = await supabase
+        .from('conversation_participants')
+        .select('conversation_id')
+        .eq('user_id', currentUserId);
+
+      if (participantError) throw participantError;
+
+      const conversationIds = [...new Set((participantRows || []).map((row) => row.conversation_id))];
+
+      if (conversationIds.length === 0) {
+        setHasUnreadMessages(false);
+        return;
+      }
+
+      const { count, error: unreadError } = await supabase
+        .from('messages')
+        .select('id', { count: 'exact', head: true })
+        .in('conversation_id', conversationIds)
+        .neq('sender_id', currentUserId)
+        .is('read_at', null);
+
+      if (unreadError) throw unreadError;
+
+      setHasUnreadMessages(Boolean(count));
+    } catch (err) {
+      console.error('Error loading unread messages state:', err);
+    }
+  }, [currentUserId]);
+
+  useEffect(() => {
+    if (!currentUserId) return undefined;
+
+    loadUnreadMessageState();
+
+    const unreadChannel = supabase
+      .channel(`app-unread-messages:${currentUserId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'messages'
+        },
+        () => {
+          loadUnreadMessageState();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'conversation_participants'
+        },
+        () => {
+          loadUnreadMessageState();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      unreadChannel.unsubscribe();
+    };
+  }, [currentUserId, loadUnreadMessageState]);
 
   const handleOpenInput = useCallback(() => {
     setRepeatWorkoutData(null);
@@ -383,15 +458,17 @@ export default function App() {
                 onClick={() => {
                   setShowConversationList(true);
                 }}
-                className="grid h-10 w-10 place-items-center rounded-xl bg-card-elevated text-text-muted hover:text-text-main transition active:scale-95"
+                className="relative grid h-10 w-10 place-items-center rounded-xl bg-card-elevated text-text-muted hover:text-text-main transition active:scale-95"
                 aria-label="Conversations"
               >
+                {hasUnreadMessages && (
+                  <span className="absolute left-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-accent-lime" />
+                )}
                 <MessageSquare size={18} />
               </button>
               <button
                 onClick={() => setProfileVisible(true)}
-                className="p-2 transition-colors rounded-lg"
-                style={{ color: 'var(--text-muted)' }}
+                className="grid h-10 w-10 place-items-center rounded-xl bg-card-elevated text-text-muted hover:text-text-main transition active:scale-95"
                 aria-label="Manage Profile"
               >
                 <User size={18} />
