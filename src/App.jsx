@@ -217,39 +217,58 @@ export default function App() {
         return;
       }
       
-      // First, get all conversations for the current user
-      const { data: userConversations, error: userConvError } = await supabase
-        .from('conversations')
+      // First, get all conversations where current user is a participant
+      const { data: userParticipantConvos, error: userConvError } = await supabase
+        .from('conversation_participants')
         .select(`
-          id,
-          conversation_participants (
-            user_id
-          )
-        `);
+          conversation_id
+        `)
+        .eq('user_id', currentUser.id);
         
       if (userConvError) throw userConvError;
       
-      console.log('Current user conversations:', userConversations);
+      console.log('Current user conversation participant entries:', userParticipantConvos);
       
-      // Find existing conversation with the target user
-      let existingConversation = null;
-      for (const conv of userConversations || []) {
-        const participantIds = conv.conversation_participants?.map(p => p.user_id) || [];
-        if (participantIds.includes(currentUser.id) && participantIds.includes(user.id)) {
-          existingConversation = conv;
+      // For each conversation the user is in, check if the other user is also a participant
+      let existingConversationId = null;
+      
+      for (const pc of userParticipantConvos || []) {
+        // Get all participants for this conversation
+        const { data: convParticipants, error: cpError } = await supabase
+          .from('conversation_participants')
+          .select('user_id')
+          .eq('conversation_id', pc.conversation_id);
+          
+        if (cpError) continue;
+        
+        // Check if the other user is in this conversation
+        const otherUserIsParticipant = convParticipants?.some(p => p.user_id === user.id);
+        if (otherUserIsParticipant) {
+          existingConversationId = pc.conversation_id;
           break;
         }
       }
       
       let conversationId;
       
-      if (existingConversation) {
-        console.log('Found existing conversation:', existingConversation);
-        conversationId = existingConversation.id;
-        setSelectedConversation(existingConversation);
+      if (existingConversationId) {
+        console.log('Found existing conversation with id:', existingConversationId);
+        
+        // Get the conversation data
+        const { data: convData, error: convDataError } = await supabase
+          .from('conversations')
+          .select('*')
+          .eq('id', existingConversationId)
+          .single();
+          
+        if (convDataError) throw convDataError;
+        
+        setSelectedConversation(convData);
+        conversationId = existingConversationId;
       } else {
         console.log('Creating new conversation...');
-        // Create new conversation
+        
+        // Step 1: Create conversation
         const { data: newConv, error: createError } = await supabase
           .from('conversations')
           .insert({ created_by: currentUser.id })
@@ -257,19 +276,25 @@ export default function App() {
           .single();
 
         if (createError) throw createError;
+        
         conversationId = newConv.id;
         setSelectedConversation(newConv);
 
-        // Add both participants
-        console.log('Adding participants...');
-        const { error: insertError } = await supabase
+        // Step 2: Add current user as participant
+        const { error: addSelfError } = await supabase
           .from('conversation_participants')
-          .insert([
-            { conversation_id: conversationId, user_id: currentUser.id },
-            { conversation_id: conversationId, user_id: user.id }
-          ]);
+          .insert({ conversation_id: conversationId, user_id: currentUser.id });
           
-        if (insertError) throw insertError;
+        if (addSelfError) throw addSelfError;
+        
+        // Step 3: Add other user as participant
+        const { error: addOtherError } = await supabase
+          .from('conversation_participants')
+          .insert({ conversation_id: conversationId, user_id: user.id });
+          
+        if (addOtherError) throw addOtherError;
+        
+        console.log('Participants added!');
       }
 
       setSelectedOtherUser(user);

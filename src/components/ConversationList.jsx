@@ -18,26 +18,69 @@ export default function ConversationList({ isOpen, onClose, onSelectConversation
     try {
       console.log('Loading conversations...');
       
-      const { data, error } = await supabase
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) {
+        console.error('No current user');
+        setLoading(false);
+        return;
+      }
+      
+      // Step 1: Get all conversation IDs where the current user is a participant
+      const { data: participantEntries, error: participantError } = await supabase
+        .from('conversation_participants')
+        .select('conversation_id')
+        .eq('user_id', currentUser.id);
+        
+      if (participantError) throw participantError;
+      
+      console.log('Participant entries:', participantEntries);
+      
+      if (!participantEntries || participantEntries.length === 0) {
+        setConversations([]);
+        setLoading(false);
+        return;
+      }
+      
+      const conversationIds = participantEntries.map(p => p.conversation_id);
+      
+      // Step 2: Get all conversations with those IDs
+      const { data: conversations, error: convError } = await supabase
         .from('conversations')
-        .select(`
-          *,
-          conversation_participants (
+        .select('*')
+        .in('id', conversationIds)
+        .order('updated_at', { ascending: false });
+        
+      if (convError) throw convError;
+      
+      console.log('Conversations:', conversations);
+      
+      // Step 3: For each conversation, get the participants (including profiles)
+      const conversationsWithParticipants = [];
+      for (const conv of conversations || []) {
+        const { data: participants, error: partError } = await supabase
+          .from('conversation_participants')
+          .select(`
             user_id,
             profiles (
               id,
               email
             )
-          )
-        `)
-        .order('updated_at', { ascending: false });
-
-      if (!error) {
-        console.log('Conversations loaded:', data);
-        setConversations(data || []);
-      } else {
-        console.error('Error loading conversations:', error);
+          `)
+          .eq('conversation_id', conv.id);
+          
+        if (partError) {
+          console.error('Error getting participants for conv:', conv.id, partError);
+          continue;
+        }
+        
+        conversationsWithParticipants.push({
+          ...conv,
+          conversation_participants: participants
+        });
       }
+      
+      console.log('Conversations with participants:', conversationsWithParticipants);
+      setConversations(conversationsWithParticipants);
     } catch (err) {
       console.error('Error loading conversations:', err);
     }
