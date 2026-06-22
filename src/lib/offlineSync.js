@@ -262,10 +262,11 @@ export async function processSyncQueue() {
 export async function loadWorkouts() {
   const tombstones = await getCachedData(WORKOUT_DELETE_TOMBSTONES_KEY) || [];
   const cachedWorkouts = filterDeletedWorkouts(await getCachedData('workouts') || [], tombstones);
+  const localCachedWorkouts = cachedWorkouts.filter((workout) => workout.is_local);
   
   if (!navigator.onLine) {
     console.log('Offline, using cached workouts');
-    return cachedWorkouts;
+    return localCachedWorkouts;
   }
   
   try {
@@ -278,12 +279,12 @@ export async function loadWorkouts() {
     if (error) throw error;
     const filteredServerData = filterDeletedWorkouts(data || [], tombstones);
     // #region debug-point C:load-workouts-source
-    fetch('http://127.0.0.1:7777/event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: 'logbook-delete-reappears', runId: 'post-fix', hypothesisId: 'C', location: 'offlineSync.js:loadWorkouts:source', msg: '[DEBUG] loadWorkouts fetched sources', data: { cachedCount: cachedWorkouts.length, cachedLocalIds: cachedWorkouts.filter((w) => w.is_local).slice(0, 5).map((w) => w.id), serverCount: Array.isArray(filteredServerData) ? filteredServerData.length : -1, serverIds: Array.isArray(filteredServerData) ? filteredServerData.slice(0, 5).map((w) => w.id) : [], tombstoneCount: tombstones.length }, ts: Date.now() }) }).catch(() => {});
+    fetch('http://127.0.0.1:7777/event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: 'logbook-delete-reappears', runId: 'post-fix', hypothesisId: 'C', location: 'offlineSync.js:loadWorkouts:source', msg: '[DEBUG] loadWorkouts fetched sources', data: { cachedCount: cachedWorkouts.length, cachedLocalCount: localCachedWorkouts.length, cachedLocalIds: localCachedWorkouts.slice(0, 5).map((w) => w.id), serverCount: Array.isArray(filteredServerData) ? filteredServerData.length : -1, serverIds: Array.isArray(filteredServerData) ? filteredServerData.slice(0, 5).map((w) => w.id) : [], tombstoneCount: tombstones.length }, ts: Date.now() }) }).catch(() => {});
     // #endregion
     
     // Merge server data with local unsynced data
     const serverTimestamps = new Set(filteredServerData.map(w => w.timestamp) || []);
-    const unsyncedLocal = cachedWorkouts.filter(w => 
+    const unsyncedLocal = localCachedWorkouts.filter(w => 
       w.is_local && !serverTimestamps.has(w.timestamp)
     );
     
@@ -295,12 +296,12 @@ export async function loadWorkouts() {
     fetch('http://127.0.0.1:7777/event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: 'logbook-delete-reappears', runId: 'post-fix', hypothesisId: 'E', location: 'offlineSync.js:loadWorkouts:merged', msg: '[DEBUG] loadWorkouts merged data', data: { unsyncedLocalCount: unsyncedLocal.length, unsyncedLocalIds: unsyncedLocal.slice(0, 5).map((w) => w.id), mergedCount: mergedData.length, mergedIds: mergedData.slice(0, 5).map((w) => w.id) }, ts: Date.now() }) }).catch(() => {});
     // #endregion
     
-    await cacheData('workouts', mergedData);
+    await cacheData('workouts', unsyncedLocal);
     return mergedData;
     
   } catch (err) {
     console.error('Failed to load from server, using cache', err);
-    return cachedWorkouts;
+    return localCachedWorkouts;
   }
 }
 
