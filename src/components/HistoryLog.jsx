@@ -18,9 +18,6 @@ export default function HistoryLog({ refreshKey, onChanged, onRepeatWorkout }) {
     async function loadHistory() {
       setLoading(true);
       const data = await loadWorkouts();
-      // #region debug-point B:load-history
-      fetch('http://127.0.0.1:7777/event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: 'logbook-delete-reappears', runId: 'post-fix', hypothesisId: 'B', location: 'HistoryLog.jsx:loadHistory', msg: '[DEBUG] loadHistory resolved', data: { refreshKey, count: Array.isArray(data) ? data.length : -1, ids: Array.isArray(data) ? data.slice(0, 5).map((item) => item.id) : [] }, ts: Date.now() }) }).catch(() => {});
-      // #endregion
       if (isMounted) {
         setWorkouts(data || []);
         setLoading(false);
@@ -48,39 +45,24 @@ export default function HistoryLog({ refreshKey, onChanged, onRepeatWorkout }) {
 
   const handleDelete = async (id) => {
     const deletedWorkout = workouts.find((w) => w.id === id);
-    // #region debug-point D:delete-start
-    fetch('http://127.0.0.1:7777/event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: 'logbook-delete-reappears', runId: 'post-fix', hypothesisId: 'D', location: 'HistoryLog.jsx:handleDelete:start', msg: '[DEBUG] delete requested', data: { id, currentCount: workouts.length, matchingIds: workouts.filter((w) => w.id === id).map((w) => w.id) }, ts: Date.now() }) }).catch(() => {});
-    // #endregion
     // Optimistic Update
     const updatedWorkouts = workouts.filter((w) => w.id !== id);
     await markWorkoutDeleted(deletedWorkout);
     setWorkouts(updatedWorkouts);
     cacheData('workouts', updatedWorkouts).catch(console.error);
-    // #region debug-point E:optimistic-remove
-    fetch('http://127.0.0.1:7777/event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: 'logbook-delete-reappears', runId: 'post-fix', hypothesisId: 'E', location: 'HistoryLog.jsx:handleDelete:optimistic', msg: '[DEBUG] optimistic delete applied', data: { id, nextCount: updatedWorkouts.length, idStillPresent: updatedWorkouts.some((w) => w.id === id) }, ts: Date.now() }) }).catch(() => {});
-    // #endregion
 
     if (navigator.onLine) {
       const { error } = await supabase.from('workouts').delete().eq('id', id);
       if (error) {
-        // #region debug-point A:delete-error
-        fetch('http://127.0.0.1:7777/event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: 'logbook-delete-reappears', runId: 'post-fix', hypothesisId: 'A', location: 'HistoryLog.jsx:handleDelete:error', msg: '[DEBUG] delete request failed', data: { id, message: error.message, code: error.code, details: error.details, hint: error.hint }, ts: Date.now() }) }).catch(() => {});
-        // #endregion
         console.error('Error deleting workout:', error);
         // Rollback if needed
         await unmarkWorkoutDeleted(deletedWorkout);
         setWorkouts(workouts);
         cacheData('workouts', workouts).catch(console.error);
       } else {
-        // #region debug-point B:delete-success
-        fetch('http://127.0.0.1:7777/event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: 'logbook-delete-reappears', runId: 'post-fix', hypothesisId: 'B', location: 'HistoryLog.jsx:handleDelete:success', msg: '[DEBUG] delete request succeeded', data: { id, refreshTriggered: Boolean(onChanged) }, ts: Date.now() }) }).catch(() => {});
-        // #endregion
         if (onChanged) onChanged();
       }
     } else {
-      // #region debug-point C:delete-offline
-      fetch('http://127.0.0.1:7777/event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: 'logbook-delete-reappears', runId: 'post-fix', hypothesisId: 'C', location: 'HistoryLog.jsx:handleDelete:offline', msg: '[DEBUG] delete queued offline', data: { id }, ts: Date.now() }) }).catch(() => {});
-      // #endregion
       await queueSyncAction('delete', 'workouts', { id, timestamp: deletedWorkout?.timestamp, exercise_name: deletedWorkout?.exercise_name });
       if (onChanged) onChanged();
     }

@@ -345,7 +345,7 @@ export default function ProfileManager({ visible, onClose, session, onLogout, on
                   <span className="text-sm font-extrabold text-quiet-red">Delete Account?</span>
                 </div>
                 <p className="text-xs text-text-muted mb-4 leading-relaxed">
-                  This will permanently delete your account and <strong className="text-text-main">all workout data, splits, and history</strong>. This cannot be undone.
+                  This will permanently delete your account and <strong className="text-text-main">all workout data, splits, history, conversations, and messages</strong>. This cannot be undone.
                 </p>
                 <div className="flex gap-2">
                   <button
@@ -370,7 +370,7 @@ export default function ProfileManager({ visible, onClose, session, onLogout, on
                   <AlertTriangle size={16} className="text-quiet-red" />
                   <span className="text-sm font-extrabold text-quiet-red">Final confirmation</span>
                 </div>
-                <p className="text-xs text-text-muted mb-3">Type <strong className="text-quiet-red font-mono tracking-widest">DELETE</strong> below to permanently erase your account.</p>
+                <p className="text-xs text-text-muted mb-3">Type <strong className="text-quiet-red font-mono tracking-widest">DELETE</strong> below to permanently erase your account and remove your chat threads for both sides.</p>
                 <input
                   type="text"
                   value={deleteInput}
