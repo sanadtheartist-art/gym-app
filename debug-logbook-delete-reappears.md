@@ -34,4 +34,7 @@
 
 # Verification
 - Current debug run uses `runId=post-fix`.
-- Next step: reproduce the delete flow once more in this browser and inspect the fresh post-fix logs.
+- Post-fix logs were not emitted from the affected browser profile, which suggests that profile may still be using stale browser-local persisted state or stale loaded code.
+- Added a stronger iteration fix by moving the app to a fresh IndexedDB namespace: `JexiOfflineDBv2`.
+- This keeps Supabase data untouched while isolating the affected browser from old stale local workout cache data.
+- Next step: reload the app in the affected browser so it opens the new local DB, then reproduce delete again.

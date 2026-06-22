@@ -1,9 +1,9 @@
 import { supabase } from './supabase';
 
-const DB_NAME = 'JexiOfflineDB';
+const DB_NAME = 'JexiOfflineDBv2';
 const STORE_NAME = 'syncQueue';
 const CACHE_STORE = 'dataCache';
-const DB_VERSION = 3; // Incremented version
+const DB_VERSION = 1;
 const WORKOUT_DELETE_TOMBSTONES_KEY = 'workout_delete_tombstones';
 
 function getDB() {
