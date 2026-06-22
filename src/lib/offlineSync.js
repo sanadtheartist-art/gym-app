@@ -64,6 +64,35 @@ export async function getPendingSyncItems() {
   });
 }
 
+async function updateWorkoutsCache(action, payload, userId) {
+  const cachedWorkouts = await getCachedData('workouts') || [];
+
+  if (action === 'insert') {
+    const newWorkout = {
+      ...payload,
+      id: payload.id || `local-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+      user_id: userId,
+      is_local: true,
+    };
+
+    await cacheData('workouts', [newWorkout, ...cachedWorkouts]);
+    return;
+  }
+
+  if (action === 'update' && payload?.id && payload?.data) {
+    const updatedWorkouts = cachedWorkouts.map((workout) =>
+      workout.id === payload.id ? { ...workout, ...payload.data } : workout
+    );
+    await cacheData('workouts', updatedWorkouts);
+    return;
+  }
+
+  if (action === 'delete' && payload?.id) {
+    const updatedWorkouts = cachedWorkouts.filter((workout) => workout.id !== payload.id);
+    await cacheData('workouts', updatedWorkouts);
+  }
+}
+
 // Queue an operation when offline (Legacy support for 'insert')
 export async function queueSyncData(table, payload) {
   return queueSyncAction('insert', table, payload);
@@ -77,22 +106,15 @@ export async function queueSyncAction(action, table, payload) {
     supabase.auth.getSession().then(async ({ data }) => {
       const user_id = data?.session?.user?.id;
       
-      // First, save to local workout cache immediately so user sees it
+      // Keep the workout cache in sync with optimistic offline actions.
       if (table === 'workouts') {
-        const cachedWorkouts = await getCachedData('workouts') || [];
-        const newWorkout = { 
-          ...payload, 
-          id: `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Temporary local ID
-          user_id,
-          is_local: true 
-        };
-        await cacheData('workouts', [...cachedWorkouts, newWorkout]);
+        await updateWorkoutsCache(action, payload, user_id);
       }
       
       const tx = db.transaction(STORE_NAME, 'readwrite');
       const store = tx.objectStore(STORE_NAME);
       
-      if (user_id && payload && typeof payload === 'object' && action !== 'delete') {
+      if (user_id && payload && typeof payload === 'object' && action === 'insert') {
         payload.user_id = user_id;
       }
       

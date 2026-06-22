@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Trash2, RotateCcw, Search, Dumbbell } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { loadWorkouts, cacheData, getPendingSyncItems, queueSyncAction } from '../lib/offlineSync';
+import { loadWorkouts, cacheData, queueSyncAction } from '../lib/offlineSync';
 import { playTapSound } from '../lib/sounds';
 import CountdownAction from './CountdownAction';
 export default function HistoryLog({ refreshKey, onChanged, onRepeatWorkout }) {
@@ -47,7 +47,7 @@ export default function HistoryLog({ refreshKey, onChanged, onRepeatWorkout }) {
     // Optimistic Update
     const updatedWorkouts = workouts.filter((w) => w.id !== id);
     setWorkouts(updatedWorkouts);
-    cacheData('workouts_history', updatedWorkouts).catch(console.error);
+    cacheData('workouts', updatedWorkouts).catch(console.error);
 
     if (navigator.onLine) {
       const { error } = await supabase.from('workouts').delete().eq('id', id);
@@ -55,16 +55,13 @@ export default function HistoryLog({ refreshKey, onChanged, onRepeatWorkout }) {
         console.error('Error deleting workout:', error);
         // Rollback if needed
         setWorkouts(workouts);
-        cacheData('workouts_history', workouts).catch(console.error);
+        cacheData('workouts', workouts).catch(console.error);
       } else {
         if (onChanged) onChanged();
       }
     } else {
-      // Offline Sync Queue
-      import('../lib/offlineSync').then(({ queueSyncAction }) => {
-        queueSyncAction('delete', 'workouts', { id });
-        if (onChanged) onChanged();
-      });
+      await queueSyncAction('delete', 'workouts', { id });
+      if (onChanged) onChanged();
     }
   };
 

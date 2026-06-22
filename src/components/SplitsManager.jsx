@@ -120,14 +120,18 @@ export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, 
     const updatedSplits = [newSplit, ...splits];
     setSplits(updatedSplits);
     cacheData('splits_manager', { splits: updatedSplits, suggestions: exerciseSuggestions }).catch(console.error);
-    onChanged?.();
 
     if (navigator.onLine) {
       const { error } = await supabase.from('splits').insert({ id: tempId, name });
-      if (error) setStatus(error.message);
+      if (error) {
+        setStatus(error.message);
+      } else {
+        onChanged?.();
+      }
     } else {
       import('../lib/offlineSync').then(({ queueSyncAction }) => {
         queueSyncAction('insert', 'splits', { id: tempId, name });
+        onChanged?.();
       });
     }
   };
@@ -143,14 +147,18 @@ export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, 
     setSplits(updatedSplits);
     cacheData('splits_manager', { splits: updatedSplits, suggestions: exerciseSuggestions }).catch(console.error);
     setEditingSplitId('');
-    onChanged?.();
     
     if (navigator.onLine) {
       const { error } = await supabase.from('splits').update({ name }).eq('id', splitId);
-      if (error) setStatus(error.message);
+      if (error) {
+        setStatus(error.message);
+      } else {
+        onChanged?.();
+      }
     } else {
       import('../lib/offlineSync').then(({ queueSyncAction }) => {
         queueSyncAction('update', 'splits', { id: splitId, data: { name } });
+        onChanged?.();
       });
     }
   };
@@ -225,14 +233,18 @@ export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, 
     const updatedSplits = splits.map((s) => s.id === split.id ? { ...s, exercises: [...s.exercises, newEx] } : s);
     setSplits(updatedSplits);
     cacheData('splits_manager', { splits: updatedSplits, suggestions: exerciseSuggestions }).catch(console.error);
-    onChanged?.();
 
     if (navigator.onLine) {
       const { error } = await supabase.from('split_exercises').insert(newEx);
-      if (error) setStatus(error.message);
+      if (error) {
+        setStatus(error.message);
+      } else {
+        onChanged?.();
+      }
     } else {
       import('../lib/offlineSync').then(({ queueSyncAction }) => {
         queueSyncAction('insert', 'split_exercises', newEx);
+        onChanged?.();
       });
     }
   };
@@ -241,14 +253,18 @@ export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, 
     const updatedSplits = splits.map((split) => split.id === splitId ? { ...split, exercises: split.exercises.filter((exercise) => exercise.id !== exerciseId) } : split);
     setSplits(updatedSplits);
     cacheData('splits_manager', { splits: updatedSplits, suggestions: exerciseSuggestions }).catch(console.error);
-    onChanged?.();
 
     if (navigator.onLine) {
       const { error } = await supabase.from('split_exercises').delete().eq('id', exerciseId);
-      if (error) setStatus(error.message);
+      if (error) {
+        setStatus(error.message);
+      } else {
+        onChanged?.();
+      }
     } else {
       import('../lib/offlineSync').then(({ queueSyncAction }) => {
         queueSyncAction('delete', 'split_exercises', { id: exerciseId });
+        onChanged?.();
       });
     }
   };
@@ -293,14 +309,18 @@ export default function SplitsManager({ activeSplit, onLaunchSplit, refreshKey, 
     setSplits(updatedSplits);
     if (expandedSplitId === splitId) setExpandedSplitId('');
     cacheData('splits_manager', { splits: updatedSplits, suggestions: exerciseSuggestions }).catch(console.error);
-    onChanged?.();
 
     if (navigator.onLine) {
       const { error } = await supabase.from('splits').delete().eq('id', splitId);
-      if (error) setStatus(error.message);
+      if (error) {
+        setStatus(error.message);
+      } else {
+        onChanged?.();
+      }
     } else {
       import('../lib/offlineSync').then(({ queueSyncAction }) => {
         queueSyncAction('delete', 'splits', { id: splitId });
+        onChanged?.();
       });
     }
   };
