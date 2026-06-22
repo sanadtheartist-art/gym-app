@@ -224,6 +224,9 @@ export async function loadWorkouts() {
       .limit(1000);
       
     if (error) throw error;
+    // #region debug-point C:load-workouts-source
+    fetch('http://127.0.0.1:7777/event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: 'logbook-delete-reappears', runId: 'pre-fix', hypothesisId: 'C', location: 'offlineSync.js:loadWorkouts:source', msg: '[DEBUG] loadWorkouts fetched sources', data: { cachedCount: cachedWorkouts.length, cachedLocalIds: cachedWorkouts.filter((w) => w.is_local).slice(0, 5).map((w) => w.id), serverCount: Array.isArray(data) ? data.length : -1, serverIds: Array.isArray(data) ? data.slice(0, 5).map((w) => w.id) : [] }, ts: Date.now() }) }).catch(() => {});
+    // #endregion
     
     // Merge server data with local unsynced data
     const serverTimestamps = new Set(data?.map(w => w.timestamp) || []);
@@ -235,6 +238,9 @@ export async function loadWorkouts() {
       ...(data || []),
       ...unsyncedLocal
     ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    // #region debug-point E:load-workouts-merged
+    fetch('http://127.0.0.1:7777/event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: 'logbook-delete-reappears', runId: 'pre-fix', hypothesisId: 'E', location: 'offlineSync.js:loadWorkouts:merged', msg: '[DEBUG] loadWorkouts merged data', data: { unsyncedLocalCount: unsyncedLocal.length, unsyncedLocalIds: unsyncedLocal.slice(0, 5).map((w) => w.id), mergedCount: mergedData.length, mergedIds: mergedData.slice(0, 5).map((w) => w.id) }, ts: Date.now() }) }).catch(() => {});
+    // #endregion
     
     await cacheData('workouts', mergedData);
     return mergedData;
