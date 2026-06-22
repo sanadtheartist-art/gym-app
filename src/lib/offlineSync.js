@@ -4,6 +4,7 @@ const DB_NAME = 'JexiOfflineDB';
 const STORE_NAME = 'syncQueue';
 const CACHE_STORE = 'dataCache';
 const DB_VERSION = 3; // Incremented version
+const WORKOUT_DELETE_TOMBSTONES_KEY = 'workout_delete_tombstones';
 
 function getDB() {
   return new Promise((resolve, reject) => {
@@ -64,6 +65,56 @@ export async function getPendingSyncItems() {
   });
 }
 
+function matchesWorkoutIdentity(workout, tombstone) {
+  if (!workout || !tombstone) return false;
+
+  if (tombstone.id && workout.id === tombstone.id) {
+    return true;
+  }
+
+  return Boolean(
+    tombstone.timestamp &&
+    tombstone.exercise_name &&
+    workout.timestamp === tombstone.timestamp &&
+    workout.exercise_name === tombstone.exercise_name
+  );
+}
+
+function filterDeletedWorkouts(workouts, tombstones) {
+  if (!Array.isArray(workouts) || workouts.length === 0 || !Array.isArray(tombstones) || tombstones.length === 0) {
+    return Array.isArray(workouts) ? workouts : [];
+  }
+
+  return workouts.filter((workout) => !tombstones.some((tombstone) => matchesWorkoutIdentity(workout, tombstone)));
+}
+
+export async function markWorkoutDeleted(workout) {
+  if (!workout) return;
+
+  const tombstones = await getCachedData(WORKOUT_DELETE_TOMBSTONES_KEY) || [];
+  const nextTombstones = tombstones.some((tombstone) => matchesWorkoutIdentity(workout, tombstone))
+    ? tombstones
+    : [
+        {
+          id: workout.id,
+          timestamp: workout.timestamp || null,
+          exercise_name: workout.exercise_name || null,
+          deleted_at: Date.now(),
+        },
+        ...tombstones,
+      ].slice(0, 200);
+
+  await cacheData(WORKOUT_DELETE_TOMBSTONES_KEY, nextTombstones);
+}
+
+export async function unmarkWorkoutDeleted(workout) {
+  if (!workout) return;
+
+  const tombstones = await getCachedData(WORKOUT_DELETE_TOMBSTONES_KEY) || [];
+  const nextTombstones = tombstones.filter((tombstone) => !matchesWorkoutIdentity(workout, tombstone));
+  await cacheData(WORKOUT_DELETE_TOMBSTONES_KEY, nextTombstones);
+}
+
 async function updateWorkoutsCache(action, payload, userId) {
   const cachedWorkouts = await getCachedData('workouts') || [];
 
@@ -88,7 +139,7 @@ async function updateWorkoutsCache(action, payload, userId) {
   }
 
   if (action === 'delete' && payload?.id) {
-    const updatedWorkouts = cachedWorkouts.filter((workout) => workout.id !== payload.id);
+    const updatedWorkouts = filterDeletedWorkouts(cachedWorkouts, [payload]);
     await cacheData('workouts', updatedWorkouts);
   }
 }
@@ -209,7 +260,8 @@ export async function processSyncQueue() {
 
 // Load workouts, combining cached and server data
 export async function loadWorkouts() {
-  const cachedWorkouts = await getCachedData('workouts') || [];
+  const tombstones = await getCachedData(WORKOUT_DELETE_TOMBSTONES_KEY) || [];
+  const cachedWorkouts = filterDeletedWorkouts(await getCachedData('workouts') || [], tombstones);
   
   if (!navigator.onLine) {
     console.log('Offline, using cached workouts');
@@ -224,22 +276,23 @@ export async function loadWorkouts() {
       .limit(1000);
       
     if (error) throw error;
+    const filteredServerData = filterDeletedWorkouts(data || [], tombstones);
     // #region debug-point C:load-workouts-source
-    fetch('http://127.0.0.1:7777/event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: 'logbook-delete-reappears', runId: 'pre-fix', hypothesisId: 'C', location: 'offlineSync.js:loadWorkouts:source', msg: '[DEBUG] loadWorkouts fetched sources', data: { cachedCount: cachedWorkouts.length, cachedLocalIds: cachedWorkouts.filter((w) => w.is_local).slice(0, 5).map((w) => w.id), serverCount: Array.isArray(data) ? data.length : -1, serverIds: Array.isArray(data) ? data.slice(0, 5).map((w) => w.id) : [] }, ts: Date.now() }) }).catch(() => {});
+    fetch('http://127.0.0.1:7777/event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: 'logbook-delete-reappears', runId: 'post-fix', hypothesisId: 'C', location: 'offlineSync.js:loadWorkouts:source', msg: '[DEBUG] loadWorkouts fetched sources', data: { cachedCount: cachedWorkouts.length, cachedLocalIds: cachedWorkouts.filter((w) => w.is_local).slice(0, 5).map((w) => w.id), serverCount: Array.isArray(filteredServerData) ? filteredServerData.length : -1, serverIds: Array.isArray(filteredServerData) ? filteredServerData.slice(0, 5).map((w) => w.id) : [], tombstoneCount: tombstones.length }, ts: Date.now() }) }).catch(() => {});
     // #endregion
     
     // Merge server data with local unsynced data
-    const serverTimestamps = new Set(data?.map(w => w.timestamp) || []);
+    const serverTimestamps = new Set(filteredServerData.map(w => w.timestamp) || []);
     const unsyncedLocal = cachedWorkouts.filter(w => 
       w.is_local && !serverTimestamps.has(w.timestamp)
     );
     
     const mergedData = [
-      ...(data || []),
+      ...filteredServerData,
       ...unsyncedLocal
     ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     // #region debug-point E:load-workouts-merged
-    fetch('http://127.0.0.1:7777/event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: 'logbook-delete-reappears', runId: 'pre-fix', hypothesisId: 'E', location: 'offlineSync.js:loadWorkouts:merged', msg: '[DEBUG] loadWorkouts merged data', data: { unsyncedLocalCount: unsyncedLocal.length, unsyncedLocalIds: unsyncedLocal.slice(0, 5).map((w) => w.id), mergedCount: mergedData.length, mergedIds: mergedData.slice(0, 5).map((w) => w.id) }, ts: Date.now() }) }).catch(() => {});
+    fetch('http://127.0.0.1:7777/event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: 'logbook-delete-reappears', runId: 'post-fix', hypothesisId: 'E', location: 'offlineSync.js:loadWorkouts:merged', msg: '[DEBUG] loadWorkouts merged data', data: { unsyncedLocalCount: unsyncedLocal.length, unsyncedLocalIds: unsyncedLocal.slice(0, 5).map((w) => w.id), mergedCount: mergedData.length, mergedIds: mergedData.slice(0, 5).map((w) => w.id) }, ts: Date.now() }) }).catch(() => {});
     // #endregion
     
     await cacheData('workouts', mergedData);
