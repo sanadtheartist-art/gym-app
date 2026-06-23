@@ -23,11 +23,11 @@ export default function InputEngine({
   sessionTools,
   onSaved,
   repeatWorkoutData,
+  editWorkoutData,
 }) {
   const [form, setForm] = useState(initialFormState);
   const [exerciseSuggestions, setExerciseSuggestions] = useState([]);
   const [exerciseMetadataDict, setExerciseMetadataDict] = useState({});
-  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [assistedMuscles, setAssistedMuscles] = useState({});
   const [mediaFile, setMediaFile] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -101,7 +101,26 @@ export default function InputEngine({
       return;
     }
 
-    if (repeatWorkoutData) {
+    if (editWorkoutData) {
+      if (lastLaunchKeyRef.current !== `edit-${editWorkoutData.id}`) {
+        lastLaunchKeyRef.current = `edit-${editWorkoutData.id}`;
+        setForm({
+          ...initialFormState,
+          exerciseName: editWorkoutData.exercise_name || '',
+          muscleGroups: editWorkoutData.muscle_group ? editWorkoutData.muscle_group.split(',').map(m => m.trim()) : ['Upper Chest'],
+          unit: editWorkoutData.input_unit || 'KG',
+          dynamicSets: editWorkoutData.sets_data && editWorkoutData.sets_data.length > 0
+            ? editWorkoutData.sets_data.map(s => ({ reps: String(s.reps), weight: String(s.weight), type: s.type || 'N', rpe: s.rpe ? String(s.rpe) : '' }))
+            : [{ reps: '8', weight: '', type: 'N', rpe: '' }],
+          machineUsed: editWorkoutData.machine_used || '',
+          mechanicType: editWorkoutData.mechanic_type || 'N/A',
+          customNotes: editWorkoutData.custom_notes || '',
+        });
+        if (editWorkoutData.assisted_muscles) {
+          setAssistedMuscles(editWorkoutData.assisted_muscles);
+        }
+      }
+    } else if (repeatWorkoutData) {
       if (lastLaunchKeyRef.current !== repeatWorkoutData.id) {
         lastLaunchKeyRef.current = repeatWorkoutData.id;
         setForm({
@@ -128,7 +147,7 @@ export default function InputEngine({
         setForm(initialFormState);
       }
     }
-  }, [activeSplit, visible, repeatWorkoutData]);
+  }, [activeSplit, visible, repeatWorkoutData, editWorkoutData]);
 
   const matchingSuggestions = useMemo(() => {
     const search = form.exerciseName.trim().toLowerCase();
@@ -286,7 +305,7 @@ export default function InputEngine({
     setStatus('');
 
     try {
-      const mediaUrl = await uploadMedia();
+      const mediaUrl = editWorkoutData?.media_url || await uploadMedia();
       const assistedPayload = JSON.parse(JSON.stringify(assistedMuscles));
 
       const parsedSets = form.dynamicSets.map((s, idx) => {
@@ -308,7 +327,6 @@ export default function InputEngine({
       const legacyWeightKg = parsedSets[0]?.weight_kg || 0;
 
       const payload = {
-        timestamp: new Date().toISOString(),
         muscle_group: form.muscleGroups.join(', '),
         exercise_name: form.exerciseName.trim(),
         sets: legacySets,
@@ -327,11 +345,29 @@ export default function InputEngine({
         media_url: mediaUrl,
       };
 
-      if (navigator.onLine) {
-        const { error } = await supabase.from('workouts').insert(payload);
-        if (error) throw error;
+      if (editWorkoutData) {
+        // Update existing workout
+        if (navigator.onLine) {
+          const { error } = await supabase
+            .from('workouts')
+            .update(payload)
+            .eq('id', editWorkoutData.id);
+          if (error) throw error;
+        } else {
+          await queueSyncAction('update', 'workouts', {
+            id: editWorkoutData.id,
+            data: payload
+          });
+        }
       } else {
-        await queueSyncData('workouts', payload);
+        // Insert new workout
+        payload.timestamp = new Date().toISOString();
+        if (navigator.onLine) {
+          const { error } = await supabase.from('workouts').insert(payload);
+          if (error) throw error;
+        } else {
+          await queueSyncData('workouts', payload);
+        }
       }
 
       sessionTools?.resetSetTimer?.();
@@ -413,7 +449,7 @@ export default function InputEngine({
                   </span>
                 </div>
               </div>
-              <h2 className="mt-0.5 text-2xl font-extrabold text-text-main">New Entry</h2>
+              <h2 className="mt-0.5 text-2xl font-extrabold text-text-main">{editWorkoutData ? 'Edit Entry' : 'New Entry'}</h2>
             </div>
             <div className="flex gap-2">
               <button
@@ -481,6 +517,17 @@ export default function InputEngine({
                   ))}
                 </div>
               ) : null}
+            </label>
+
+            {/* Machine used */}
+            <label className="block min-w-0">
+              <span className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">Machine Used</span>
+              <input
+                value={form.machineUsed}
+                onChange={(event) => updateForm('machineUsed', event.target.value)}
+                placeholder="Cable stack, plate-loaded press"
+                className="h-14 w-full rounded-2xl bg-app-bg px-5 text-sm font-medium text-text-main outline-none border border-glass-border focus:border-accent-lime transition-colors"
+              />
             </label>
 
             {/* Muscle groups */}
@@ -625,108 +672,64 @@ export default function InputEngine({
               </button>
             </div>
 
-            {/* Advanced metadata toggle */}
-            <button
-              type="button"
-              onClick={() => setAdvancedOpen((open) => !open)}
-              className="mt-2 flex h-14 w-full items-center justify-between rounded-2xl bg-app-bg border border-glass-border px-5 text-left transition hover:bg-card-elevated"
-            >
-              <span className="text-sm font-bold text-text-main">Advanced Metadata</span>
-              <ChevronDown className={`text-text-muted transition-transform duration-300 ${advancedOpen ? 'rotate-180' : ''}`} size={20} />
-            </button>
+            {/* Assisted muscles */}
+            <div className="min-w-0">
+              <span className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">Assisted Muscles</span>
+              <div className="flex flex-wrap gap-2">
+                {EXPLICIT_MUSCLE_LIST.map((muscle) => {
+                  const selected = Object.prototype.hasOwnProperty.call(assistedMuscles, muscle);
+                  return (
+                    <button
+                      type="button"
+                      key={muscle}
+                      onClick={() => toggleMuscle(muscle)}
+                      className={`rounded-lg px-3 py-2 text-xs font-bold transition ${
+                        selected ? 'bg-text-main text-app-bg' : 'bg-card-elevated text-text-muted'
+                      }`}
+                    >
+                      {muscle}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-            {advancedOpen ? (
-              <div className="grid gap-5 rounded-2xl bg-app-bg border border-glass-border p-5">
-                {/* Mechanic */}
-                <div>
-                  <span className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">Mechanic</span>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                    {['Compound', 'Isolation', 'N/A'].map((type) => (
-                      <button
-                        type="button"
-                        key={type}
-                        onClick={() => updateForm('mechanicType', type)}
-                        className={`h-11 rounded-lg text-xs font-bold transition ${
-                          form.mechanicType === type ? 'bg-text-main text-app-bg' : 'bg-card-elevated text-text-muted'
-                        }`}
-                      >
-                        {type}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Machine used */}
-                <label>
-                  <span className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">Machine Used</span>
-                  <input
-                    value={form.machineUsed}
-                    onChange={(event) => updateForm('machineUsed', event.target.value)}
-                    placeholder="Cable stack, plate-loaded press"
-                    className="h-12 w-full rounded-xl bg-card-elevated px-4 text-sm font-medium text-text-main outline-none focus:ring-1 focus:ring-accent-lime"
-                  />
-                </label>
-
-                {/* Assisted muscles */}
-                <div>
-                  <span className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">Assisted Muscles</span>
-                  <div className="flex flex-wrap gap-2">
-                    {EXPLICIT_MUSCLE_LIST.map((muscle) => {
-                      const selected = Object.prototype.hasOwnProperty.call(assistedMuscles, muscle);
-                      return (
-                        <button
-                          type="button"
-                          key={muscle}
-                          onClick={() => toggleMuscle(muscle)}
-                          className={`rounded-lg px-3 py-2 text-xs font-bold transition ${
-                            selected ? 'bg-text-main text-app-bg' : 'bg-card-elevated text-text-muted'
-                          }`}
-                        >
-                          {muscle}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Assisted muscle sliders */}
-                {Object.keys(assistedMuscles).length ? (
-                  <div className="grid gap-4 mt-2">
-                    {Object.entries(assistedMuscles).map(([muscle, value]) => (
-                      <label key={muscle} className="block">
-                        <span className="mb-2 flex items-center justify-between text-[11px] font-bold text-text-main">
-                          <span>{muscle}</span>
-                          <span className="text-accent-lime">{value}%</span>
-                        </span>
-                        <input
-                          type="range"
-                          min="0"
-                          max="100"
-                          value={value}
-                          onChange={(event) => {
-                            const nextValue = parseInt(event.target.value, 10);
-                            setAssistedMuscles((current) => ({ ...current, [muscle]: nextValue }));
-                          }}
-                          className="w-full"
-                        />
-                      </label>
-                    ))}
-                  </div>
-                ) : null}
-
-                {/* Notes */}
-                <label>
-                  <span className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">Notes</span>
-                  <textarea
-                    value={form.customNotes}
-                    onChange={(event) => updateForm('customNotes', event.target.value)}
-                    rows="3"
-                    placeholder="Tempo, pain signals, setup cues"
-                    className="w-full resize-none rounded-xl bg-card-elevated px-4 py-3 text-sm font-medium text-text-main outline-none focus:ring-1 focus:ring-accent-lime"
-                  />
-                </label>
+            {/* Assisted muscle sliders */}
+            {Object.keys(assistedMuscles).length ? (
+              <div className="grid gap-4 mt-2">
+                {Object.entries(assistedMuscles).map(([muscle, value]) => (
+                  <label key={muscle} className="block">
+                    <span className="mb-2 flex items-center justify-between text-[11px] font-bold text-text-main">
+                      <span>{muscle}</span>
+                      <span className="text-accent-lime">{value}%</span>
+                    </span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={value}
+                      onChange={(event) => {
+                        const nextValue = parseInt(event.target.value, 10);
+                        setAssistedMuscles((current) => ({ ...current, [muscle]: nextValue }));
+                      }}
+                      className="w-full"
+                    />
+                  </label>
+                ))}
               </div>
             ) : null}
+
+            {/* Notes */}
+            <label className="block">
+              <span className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">Notes</span>
+              <textarea
+                value={form.customNotes}
+                onChange={(event) => updateForm('customNotes', event.target.value)}
+                rows="3"
+                placeholder="Tempo, pain signals, setup cues"
+                className="w-full resize-none rounded-xl bg-card-elevated px-4 py-3 text-sm font-medium text-text-main outline-none focus:ring-1 focus:ring-accent-lime"
+              />
+            </label>
 
             {/* Media upload */}
             <label className="flex cursor-pointer items-center gap-4 rounded-2xl bg-app-bg border border-glass-border px-4 py-3 transition hover:bg-card-elevated">

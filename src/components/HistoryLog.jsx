@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Trash2, RotateCcw, Search, Dumbbell } from 'lucide-react';
+import { Trash2, RotateCcw, Search, Dumbbell, Edit } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { loadWorkouts, cacheData, queueSyncAction, markWorkoutDeleted, unmarkWorkoutDeleted } from '../lib/offlineSync';
 import { playTapSound } from '../lib/sounds';
 import CountdownAction from './CountdownAction';
-export default function HistoryLog({ refreshKey, onChanged, onRepeatWorkout }) {
+export default function HistoryLog({ refreshKey, onChanged, onRepeatWorkout, onEditWorkout }) {
   const [workouts, setWorkouts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -160,6 +160,14 @@ export default function HistoryLog({ refreshKey, onChanged, onRepeatWorkout }) {
                       aria-label="Repeat workout"
                     >
                       <RotateCcw size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onEditWorkout?.(workout); }}
+                      className="grid h-10 w-10 place-items-center rounded-lg bg-card-elevated text-text-main transition active:scale-95 hover:bg-white/10 hover:text-accent-lime"
+                      aria-label="Edit workout"
+                    >
+                      <Edit size={16} />
                     </button>
                     {deletingWorkoutId === workout.id ? (
                       <div onClick={(e) => e.stopPropagation()}>

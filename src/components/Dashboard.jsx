@@ -220,8 +220,9 @@ export default function Dashboard({ activeSplit, onOpenInput, onOpenPortability,
     const now = new Date();
     const startOfWeek = new Date(now);
     const day = now.getDay();
-    const diffToMonday = (day + 6) % 7;
-    startOfWeek.setDate(now.getDate() - diffToMonday);
+    // 0 = Sunday, 6 = Saturday
+    const diffToSaturday = day === 6 ? 0 : day === 0 ? 1 : (day + 1);
+    startOfWeek.setDate(now.getDate() - diffToSaturday);
     startOfWeek.setHours(0, 0, 0, 0);
 
     const endOfWeek = new Date(startOfWeek);

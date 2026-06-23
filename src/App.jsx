@@ -38,6 +38,7 @@ export default function App() {
   const [sessionTools, setSessionTools] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [repeatWorkoutData, setRepeatWorkoutData] = useState(null);
+  const [editWorkoutData, setEditWorkoutData] = useState(null);
   const [restOverlayVisible, setRestOverlayVisible] = useState(false);
   const [restTimerState, setRestTimerState] = useState({ seconds: 0, active: false });
   const [profileVisible, setProfileVisible] = useState(false);
@@ -239,12 +240,20 @@ export default function App() {
 
   const handleOpenInput = useCallback(() => {
     setRepeatWorkoutData(null);
+    setEditWorkoutData(null);
     setActiveSplit(null);
     setInputVisible(true);
   }, []);
 
   const handleRepeatWorkout = useCallback((workout) => {
     setRepeatWorkoutData(workout);
+    setEditWorkoutData(null);
+    setInputVisible(true);
+  }, []);
+
+  const handleEditWorkout = useCallback((workout) => {
+    setEditWorkoutData(workout);
+    setRepeatWorkoutData(null);
     setInputVisible(true);
   }, []);
 
@@ -271,6 +280,7 @@ export default function App() {
 
   const launchSplit = useCallback((split) => {
     setRepeatWorkoutData(null);
+    setEditWorkoutData(null);
     setActiveSplit({ ...split, _launchKey: Date.now() });
     setInputVisible(true);
   }, []);
@@ -545,7 +555,7 @@ export default function App() {
 
             {activeTab === 'analytics' ? <AnalyticsDash refreshKey={refreshKey} /> : null}
 
-            {activeTab === 'log' ? <HistoryLog refreshKey={refreshKey} onChanged={bumpRefresh} onRepeatWorkout={handleRepeatWorkout} /> : null}
+            {activeTab === 'log' ? <HistoryLog refreshKey={refreshKey} onChanged={bumpRefresh} onRepeatWorkout={handleRepeatWorkout} onEditWorkout={handleEditWorkout} /> : null}
 
             {activeTab === 'splits' ? (
               <SplitsManager
@@ -605,11 +615,16 @@ export default function App() {
 
         <InputEngine
           visible={inputVisible}
-          onClose={() => setInputVisible(false)}
+          onClose={() => {
+            setInputVisible(false);
+            setEditWorkoutData(null);
+            setRepeatWorkoutData(null);
+          }}
           activeSplit={activeSplit}
           sessionTools={sessionTools}
           onSaved={handleWorkoutSaved}
           repeatWorkoutData={repeatWorkoutData}
+          editWorkoutData={editWorkoutData}
         />
 
         {restOverlayVisible && (
