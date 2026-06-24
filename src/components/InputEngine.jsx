@@ -1,12 +1,35 @@
 import { useEffect, useMemo, useState } from 'react';
 import React from 'react';
-import { ChevronDown, Dumbbell, Save, Upload, X, Plus, Trash2, CheckCircle2 } from 'lucide-react';
+import { Dumbbell, Save, Upload, X, Plus, Trash2, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { COMMON_MUSCLE_PRESETS, EXPLICIT_MUSCLE_LIST } from '../data/muscles';
-import { queueSyncData } from '../lib/offlineSync';
+import { EXPLICIT_MUSCLE_LIST } from '../data/muscles';
+import { queueSyncAction, queueSyncData } from '../lib/offlineSync';
 import { playSuccessSound } from '../lib/sounds';
 
+const pad2 = (value) => String(value).padStart(2, '0');
+
+const toLocalDateTimeInputValue = (value) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}T${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+};
+
+const toIsoFromLocalDateTimeInputValue = (value) => {
+  if (!value) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const date = new Date(year, month - 1, day, hour, minute, 0, 0);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+};
+
 const initialFormState = {
+  timestampLocal: toLocalDateTimeInputValue(new Date()),
   muscleGroups: ['Upper Chest'],
   exerciseName: '',
   unit: 'KG',
@@ -28,7 +51,6 @@ export default function InputEngine({
   const [form, setForm] = useState(initialFormState);
   const [exerciseSuggestions, setExerciseSuggestions] = useState([]);
   const [exerciseMetadataDict, setExerciseMetadataDict] = useState({});
-  const [assistedMuscles, setAssistedMuscles] = useState({});
   const [mediaFile, setMediaFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState('');
@@ -58,7 +80,7 @@ export default function InputEngine({
     async function loadSuggestions() {
       const { data, error } = await supabase
         .from('workouts')
-        .select('exercise_name, muscle_group, mechanic_type, machine_used, assisted_muscles, timestamp')
+        .select('exercise_name, muscle_group, mechanic_type, machine_used, timestamp')
         .not('exercise_name', 'is', null)
         .order('timestamp', { ascending: false })
         .limit(300);
@@ -78,7 +100,6 @@ export default function InputEngine({
             muscle_group: row.muscle_group,
             mechanic_type: row.mechanic_type,
             machine_used: row.machine_used,
-            assisted_muscles: row.assisted_muscles,
           };
         }
       });
@@ -106,6 +127,7 @@ export default function InputEngine({
         lastLaunchKeyRef.current = `edit-${editWorkoutData.id}`;
         setForm({
           ...initialFormState,
+          timestampLocal: toLocalDateTimeInputValue(editWorkoutData.timestamp),
           exerciseName: editWorkoutData.exercise_name || '',
           muscleGroups: editWorkoutData.muscle_group ? editWorkoutData.muscle_group.split(',').map(m => m.trim()) : ['Upper Chest'],
           unit: editWorkoutData.input_unit || 'KG',
@@ -116,15 +138,13 @@ export default function InputEngine({
           mechanicType: editWorkoutData.mechanic_type || 'N/A',
           customNotes: editWorkoutData.custom_notes || '',
         });
-        if (editWorkoutData.assisted_muscles) {
-          setAssistedMuscles(editWorkoutData.assisted_muscles);
-        }
       }
     } else if (repeatWorkoutData) {
       if (lastLaunchKeyRef.current !== repeatWorkoutData.id) {
         lastLaunchKeyRef.current = repeatWorkoutData.id;
         setForm({
           ...initialFormState,
+          timestampLocal: toLocalDateTimeInputValue(new Date()),
           exerciseName: repeatWorkoutData.exercise_name || '',
           muscleGroups: repeatWorkoutData.muscle_group ? repeatWorkoutData.muscle_group.split(',').map(m => m.trim()) : ['Upper Chest'],
           unit: repeatWorkoutData.input_unit || 'KG',
@@ -138,13 +158,14 @@ export default function InputEngine({
         lastLaunchKeyRef.current = activeSplit._launchKey;
         setForm({
           ...initialFormState,
+          timestampLocal: toLocalDateTimeInputValue(new Date()),
           exerciseName: activeSplit.exercises[0].exercise_name,
         });
       }
     } else {
       if (lastLaunchKeyRef.current !== 'blank') {
         lastLaunchKeyRef.current = 'blank';
-        setForm(initialFormState);
+        setForm({ ...initialFormState, timestampLocal: toLocalDateTimeInputValue(new Date()) });
       }
     }
   }, [activeSplit, visible, repeatWorkoutData, editWorkoutData]);
@@ -174,10 +195,6 @@ export default function InputEngine({
       ...(isNewMatch && meta.mechanic_type ? { mechanicType: meta.mechanic_type } : {}),
       ...(isNewMatch && meta.machine_used ? { machineUsed: meta.machine_used } : {}),
     }));
-
-    if (isNewMatch && meta.assisted_muscles) {
-      setAssistedMuscles(meta.assisted_muscles);
-    }
   };
 
   const updateSet = (index, key, value) => {
@@ -216,18 +233,6 @@ export default function InputEngine({
         ...current,
         dynamicSets: current.dynamicSets.filter((_, i) => i !== index)
       };
-    });
-  };
-
-  const toggleMuscle = (muscle) => {
-    setAssistedMuscles((current) => {
-      if (Object.prototype.hasOwnProperty.call(current, muscle)) {
-        const next = { ...current };
-        delete next[muscle];
-        return next;
-      }
-
-      return { ...current, [muscle]: 25 };
     });
   };
 
@@ -306,7 +311,7 @@ export default function InputEngine({
 
     try {
       const mediaUrl = editWorkoutData?.media_url || await uploadMedia();
-      const assistedPayload = JSON.parse(JSON.stringify(assistedMuscles));
+      const timestampIso = toIsoFromLocalDateTimeInputValue(form.timestampLocal) || new Date().toISOString();
 
       const parsedSets = form.dynamicSets.map((s, idx) => {
         const weightRaw = parseFloat(s.weight || '0');
@@ -327,6 +332,7 @@ export default function InputEngine({
       const legacyWeightKg = parsedSets[0]?.weight_kg || 0;
 
       const payload = {
+        timestamp: timestampIso,
         muscle_group: form.muscleGroups.join(', '),
         exercise_name: form.exerciseName.trim(),
         sets: legacySets,
@@ -339,7 +345,6 @@ export default function InputEngine({
         set_duration_seconds: activeDuration,
         mechanic_type: form.mechanicType,
         machine_used: form.machineUsed.trim(),
-        assisted_muscles: assistedPayload,
         custom_notes: form.customNotes.trim(),
         split_id: activeSplit?.id || null,
         media_url: mediaUrl,
@@ -361,7 +366,6 @@ export default function InputEngine({
         }
       } else {
         // Insert new workout
-        payload.timestamp = new Date().toISOString();
         if (navigator.onLine) {
           const { error } = await supabase.from('workouts').insert(payload);
           if (error) throw error;
@@ -373,22 +377,29 @@ export default function InputEngine({
       sessionTools?.resetSetTimer?.();
       setForm((current) => ({
         ...initialFormState,
+        timestampLocal: toLocalDateTimeInputValue(new Date()),
         muscleGroups: current.muscleGroups,
         unit: current.unit,
       }));
-      setAssistedMuscles({});
       setMediaFile(null);
       
       playSuccessSound();
       setShowSuccess(true);
       setTimeout(() => {
-        // Auto-advance logic for active splits
+        if (editWorkoutData) {
+          onSaved?.(null);
+          onClose();
+          setShowSuccess(false);
+          return;
+        }
+
         if (activeSplit?.exercises?.length) {
           const currentIndex = activeSplit.exercises.findIndex(e => e.exercise_name === form.exerciseName);
           if (currentIndex !== -1 && currentIndex < activeSplit.exercises.length - 1) {
             const nextExercise = activeSplit.exercises[currentIndex + 1];
             setForm(current => ({
               ...initialFormState,
+              timestampLocal: toLocalDateTimeInputValue(new Date()),
               exerciseName: nextExercise.exercise_name,
               unit: current.unit
             }));
@@ -530,24 +541,35 @@ export default function InputEngine({
               />
             </label>
 
-            {/* Muscle groups */}
+            <label className="block min-w-0">
+              <span className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">Date</span>
+              <input
+                required
+                type="datetime-local"
+                value={form.timestampLocal}
+                onChange={(event) => updateForm('timestampLocal', event.target.value)}
+                className="h-14 w-full rounded-2xl bg-app-bg px-5 text-sm font-medium text-text-main outline-none border border-glass-border focus:border-accent-lime transition-colors"
+              />
+            </label>
+
+            {/* Muscles */}
             <div className="min-w-0">
-              <span className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">Muscle Groups</span>
+              <span className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">Muscles</span>
               <div className="flex flex-wrap gap-2">
-                {COMMON_MUSCLE_PRESETS.map((group) => {
-                  const isSelected = form.muscleGroups.includes(group);
+                {EXPLICIT_MUSCLE_LIST.map((muscle) => {
+                  const isSelected = form.muscleGroups.includes(muscle);
                   return (
                     <button
                       type="button"
-                      key={group}
+                      key={muscle}
                       onClick={() => {
                         setForm((current) => {
-                          const has = current.muscleGroups.includes(group);
+                          const has = current.muscleGroups.includes(muscle);
                           const nextGroups = has
-                            ? current.muscleGroups.filter((m) => m !== group)
-                            : [...current.muscleGroups, group];
+                            ? current.muscleGroups.filter((m) => m !== muscle)
+                            : [...current.muscleGroups, muscle];
                           
-                          if (nextGroups.length === 0) nextGroups.push(group);
+                          if (nextGroups.length === 0) nextGroups.push(muscle);
                           return { ...current, muscleGroups: nextGroups };
                         });
                       }}
@@ -555,7 +577,7 @@ export default function InputEngine({
                         isSelected ? 'bg-text-main text-app-bg' : 'bg-card-elevated text-text-muted hover:text-text-main'
                       }`}
                     >
-                      {group}
+                      {muscle}
                     </button>
                   );
                 })}
@@ -671,53 +693,6 @@ export default function InputEngine({
                 Add Set
               </button>
             </div>
-
-            {/* Assisted muscles */}
-            <div className="min-w-0">
-              <span className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">Assisted Muscles</span>
-              <div className="flex flex-wrap gap-2">
-                {EXPLICIT_MUSCLE_LIST.map((muscle) => {
-                  const selected = Object.prototype.hasOwnProperty.call(assistedMuscles, muscle);
-                  return (
-                    <button
-                      type="button"
-                      key={muscle}
-                      onClick={() => toggleMuscle(muscle)}
-                      className={`rounded-lg px-3 py-2 text-xs font-bold transition ${
-                        selected ? 'bg-text-main text-app-bg' : 'bg-card-elevated text-text-muted'
-                      }`}
-                    >
-                      {muscle}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Assisted muscle sliders */}
-            {Object.keys(assistedMuscles).length ? (
-              <div className="grid gap-4 mt-2">
-                {Object.entries(assistedMuscles).map(([muscle, value]) => (
-                  <label key={muscle} className="block">
-                    <span className="mb-2 flex items-center justify-between text-[11px] font-bold text-text-main">
-                      <span>{muscle}</span>
-                      <span className="text-accent-lime">{value}%</span>
-                    </span>
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={value}
-                      onChange={(event) => {
-                        const nextValue = parseInt(event.target.value, 10);
-                        setAssistedMuscles((current) => ({ ...current, [muscle]: nextValue }));
-                      }}
-                      className="w-full"
-                    />
-                  </label>
-                ))}
-              </div>
-            ) : null}
 
             {/* Notes */}
             <label className="block">
